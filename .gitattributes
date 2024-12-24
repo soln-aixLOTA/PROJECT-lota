@@ -1,0 +1,5 @@
+*.rlib filter=lfs diff=lfs merge=lfs -text
+*.rmeta filter=lfs diff=lfs merge=lfs -text
+build-script-build filter=lfs diff=lfs merge=lfs -text
+*.so filter=lfs diff=lfs merge=lfs -text
+*.pack filter=lfs diff=lfs merge=lfs -text
