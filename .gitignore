@@ -1,108 +1,131 @@
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.js
+vendor/
 
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
+# Environment files
+.env
+.env.*
+!.env.example
 .env*.local
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-Guest_Drivers/
-
-# Binary files and downloads
-cloud_sql_proxy*
-ngccli_linux.zip
-*.exe
-*.bin
-*.so
-*.dll
-
-# Logs and temporary files
-*.log
-*.tmp
-*.temp
-*.swp
+.env.*.local
 
 # Sensitive files
-db-key.json
+*.[jJ][sS][oO][nN]
+!package.json
+!package-lock.json
+!tsconfig.json
+!jsconfig.json
+!composer.json
+!*.example.json
+!*.template.json
+*.key
+*.pem
+*.crt
+*.pfx
+*.p12
 *.tok
-*key*.json
-*token*.json
-*secret*.json
-*credential*.json
+*[kK]ey*
+*[tT]oken*
+*[sS]ecret*
+*[cC]redential*
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+*.egg-info/
+dist/
+build/
+.eggs/
+.tox/
+.coverage
+htmlcov/
+.python-version
+
+# NGC CLI specific
+ngc-cli/**/__pycache__/
+ngc-cli/**/*.py[cod]
+ngc-cli/**/*.so
+ngc-cli/**/*.dylib
+ngc-cli/opentelemetry/**/__pycache__/
+ngc-cli/lib-dynload/
+ngccli_linux.zip
 
 # Rust
 /target/
+**/target/
 **/*.rs.bk
 Cargo.lock
 
-# IDE
+# Build and binary files
+/build
+/dist
+*.exe
+*.bin
+*.so
+*.dll
+*.dylib
+*.o
+*.a
+*.lib
+*.out
+cloud_sql_proxy*
+
+# Logs and temporary files
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# IDE and editor files
 .idea/
 .vscode/
 *.sublime-*
 *.iml
+.project
+.classpath
+.settings/
+*.code-workspace
+.history/
 
-# Environment files
-.env
-.env.*
-!.env.example
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Python cache files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# IDE files
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Build artifacts
-target/
-dist/
-build/
-*.o
-*.so
-
-# Logs
-*.log
-
-# Database
+# Database files
 *.db
 *.sqlite
+*.sqlite3
 
-# Temporary files
-*.tmp
-*.temp
-.DS_Store
+# Next.js
+/.next/
+/out/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# Testing and coverage
+/coverage
+.nyc_output/
+
+# Documentation
+/docs/_build/
+/site/
+
+# Misc project specific
+Guest_Drivers/
+api-gateway/target/
