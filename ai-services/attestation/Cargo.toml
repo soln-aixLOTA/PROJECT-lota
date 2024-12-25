@@ -1,0 +1,11 @@
+[package]
+name = "attestation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Add specific dependencies here as needed 
+
+[lib]
+name = "attestation"
+path = "src/lib.rs" 

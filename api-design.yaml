@@ -1,0 +1,18 @@
+# Example API structure
+/v1/models:
+  - register
+  - deploy
+  - monitor
+  - update
+
+/v1/pipelines:
+  - create
+  - configure
+  - execute
+  - monitor
+
+/v1/plugins:
+  - install
+  - configure
+  - update
+  - remove 
