@@ -1,8 +1,8 @@
 use dotenv::dotenv;
 use sqlx::postgres::PgPoolOptions;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::test]
+async fn test_database_connection() {
     dotenv().ok();
     
     let database_url = format!(
@@ -14,20 +14,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var("DB_NAME").unwrap_or_else(|_| "postgres".to_string()),
     );
 
-    println!("Attempting to connect to database...");
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&database_url)
-        .await?;
+        .await;
 
-    println!("Successfully connected to database!");
-    
-    // Test query
-    let result = sqlx::query!("SELECT 1 as one")
-        .fetch_one(&pool)
-        .await?;
-    
-    println!("Successfully executed test query: {:?}", result.one);
-    
-    Ok(())
-}
+    match pool {
+        Ok(pool) => {
+            // Try a simple query
+            let result = sqlx::query!("SELECT 1 as one")
+                .fetch_one(&pool)
+                .await;
+            
+            match result {
+                Ok(row) => {
+                    assert_eq!(row.one, Some(1));
+                    println!("Database connection and query successful!");
+                }
+                Err(e) => panic!("Query failed: {}", e),
+            }
+        }
+        Err(e) => panic!("Failed to connect to database: {}", e),
+    }
+} 

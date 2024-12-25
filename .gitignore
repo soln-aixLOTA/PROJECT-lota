@@ -32,3 +32,77 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 Guest_Drivers/
+
+# Binary files and downloads
+cloud_sql_proxy*
+ngccli_linux.zip
+*.exe
+*.bin
+*.so
+*.dll
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+
+# Sensitive files
+db-key.json
+*.tok
+*key*.json
+*token*.json
+*secret*.json
+*credential*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+*.iml
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+target/
+dist/
+build/
+*.o
+*.so
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store

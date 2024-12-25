@@ -61,14 +61,14 @@ where
                         }
                         Err( e ) => {
                             log::error!( "Tenant lookup error: {}", e );
-                            return Err(crate::error::CustomError::<S>::NotFound(
+                            return Err(crate::error::CustomError::NotFound(
                                 "Tenant not found".to_string()
                             ));
                         }
                     }
                 }
             }
-            Err(crate::error::CustomError::<S>::Unauthorized(
+            Err(crate::error::CustomError::Unauthorized(
                 "Missing or invalid tenant slug".to_string()
             ))
         } )
@@ -76,7 +76,7 @@ where
 }
 
 impl<S> TenantMiddleware<S> {
-    pub fn new() -> Self {
-        TenantMiddleware::<S> { service: () }
+    pub fn new(service: S) -> Self {
+        TenantMiddleware { service }
     }
 } 
