@@ -1,0 +1,130 @@
+{
+    "users": {
+        "admin": {
+            "email": "admin@example.com",
+            "password": "AdminPass123!",
+            "firstName": "Admin",
+            "lastName": "User",
+            "role": "admin"
+        },
+        "tenant_admin": {
+            "email": "tenant-admin@example.com",
+            "password": "TenantPass123!",
+            "firstName": "Tenant",
+            "lastName": "Admin",
+            "role": "tenant_admin"
+        },
+        "regular_user": {
+            "email": "user@example.com",
+            "password": "UserPass123!",
+            "firstName": "Regular",
+            "lastName": "User",
+            "role": "user"
+        }
+    },
+    "tenants": {
+        "test_tenant": {
+            "name": "Test Tenant",
+            "maxBots": 5,
+            "maxUsers": 10,
+            "storageLimit": "100GB"
+        },
+        "enterprise_tenant": {
+            "name": "Enterprise Tenant",
+            "maxBots": 50,
+            "maxUsers": 100,
+            "storageLimit": "1TB"
+        }
+    },
+    "bots": {
+        "test_bot": {
+            "name": "Test Bot",
+            "description": "A test bot for E2E testing",
+            "model": "gpt-4",
+            "maxTokens": 2048,
+            "temperature": 0.7
+        },
+        "production_bot": {
+            "name": "Production Bot",
+            "description": "A production-ready bot",
+            "model": "gpt-4",
+            "maxTokens": 4096,
+            "temperature": 0.5
+        }
+    },
+    "training_data": {
+        "valid": {
+            "conversations": [
+                {
+                    "input": "Hello, how are you?",
+                    "output": "I'm doing well, thank you for asking! How can I assist you today?"
+                },
+                {
+                    "input": "What services do you offer?",
+                    "output": "We offer a wide range of AI-powered services including natural language processing, chatbots, and custom AI solutions."
+                }
+            ]
+        },
+        "invalid": {
+            "conversations": [
+                {
+                    "input": "Invalid input",
+                    "output": null
+                }
+            ]
+        }
+    },
+    "deployment": {
+        "production": {
+            "environment": "production",
+            "minReplicas": 2,
+            "maxReplicas": 5,
+            "resources": {
+                "cpu": "2",
+                "memory": "4Gi",
+                "gpu": "1"
+            }
+        },
+        "staging": {
+            "environment": "staging",
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "resources": {
+                "cpu": "1",
+                "memory": "2Gi",
+                "gpu": "0"
+            }
+        }
+    },
+    "errors": {
+        "network": {
+            "timeout": 5000,
+            "status": 504,
+            "message": "Gateway Timeout"
+        },
+        "validation": {
+            "status": 400,
+            "message": "Invalid input data"
+        },
+        "authorization": {
+            "status": 401,
+            "message": "Unauthorized access"
+        },
+        "resource": {
+            "status": 503,
+            "message": "Resource temporarily unavailable"
+        }
+    },
+    "performance": {
+        "sla": {
+            "api_response_time": 500,
+            "page_load_time": 2000,
+            "bot_response_time": 1000
+        },
+        "thresholds": {
+            "cpu_utilization": 80,
+            "memory_utilization": 75,
+            "request_rate": 1000
+        }
+    }
+}

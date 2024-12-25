@@ -1,0 +1,10 @@
+# Basic configuration for Application and Profile Manager
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  hosts:
+    - host: apps.local
+      paths:
+        - path: /
+          pathType: Prefix 

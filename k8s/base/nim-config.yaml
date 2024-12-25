@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nim-config
+  namespace: lotabots
+data:
+  # NIM Global Settings
+  NIM_LOG_LEVEL: "info"
+  NIM_ENABLE_METRICS: "true"
+  NIM_METRICS_PORT: "8002"
+  NIM_ENABLE_HEALTH_CHECK: "true"
+  NIM_CACHE_DIR: "/opt/nim/.cache"
+  NIM_MODEL_REPOSITORY: "/models"
+  
+  # Model Configuration
+  NIM_MAX_BATCH_SIZE: "32"
+  NIM_MAX_SEQUENCE_LENGTH: "2048"
+  NIM_ENABLE_DYNAMIC_BATCHING: "true"
+  NIM_ENABLE_TENSOR_PARALLEL: "true"
+  NIM_ENABLE_PIPELINE_PARALLEL: "false"
+  
+  # GPU Settings
+  NIM_GPU_MEMORY_FRACTION: "0.95"
+  NIM_CUDA_GRAPH_ENABLE: "true"
+  NIM_ENABLE_MPS: "true"
+  
+  # Performance Settings
+  NIM_ENABLE_FP16: "true"
+  NIM_ENABLE_CACHE: "true"
+  NIM_CACHE_SIZE_MB: "4096"
+  NIM_ENABLE_NVLINK: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nim-model-config
+  namespace: lotabots
+data:
+  model-config.json: |
+    {
+      "models": [
+        {
+          "name": "nv-embedqa-e5-v5",
+          "backend": "nvidia",
+          "model_type": "embedding",
+          "max_batch_size": 32,
+          "instance_groups": [
+            {
+              "count": 1,
+              "kind": "KIND_GPU",
+              "gpus": [0],
+              "profile": ["14Gi"]
+            }
+          ]
+        },
+        {
+          "name": "nv-rerankqa-mistral-4b-v3",
+          "backend": "nvidia",
+          "model_type": "rerank",
+          "max_batch_size": 16,
+          "instance_groups": [
+            {
+              "count": 1,
+              "kind": "KIND_GPU",
+              "gpus": [0],
+              "profile": ["14Gi"]
+            }
+          ]
+        },
+        {
+          "name": "llama3-8b-instruct",
+          "backend": "nvidia",
+          "model_type": "llm",
+          "max_batch_size": 32,
+          "instance_groups": [
+            {
+              "count": 1,
+              "kind": "KIND_GPU",
+              "gpus": [0],
+              "profile": ["30Gi"]
+            }
+          ]
+        }
+      ]
+    } 

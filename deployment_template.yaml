@@ -1,0 +1,46 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lotabots-plugin-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lotabots-plugin
+  template:
+    metadata:
+      labels:
+        app: lotabots-plugin
+    spec:
+      containers:
+        - name: lotabots-plugin
+          image: your-docker-repo/lotabots-plugin:latest
+          resources:
+            limits:
+              nvidia.com/gpu: 1  # Request a GPU
+          env:
+            - name: MODEL_NAME
+              value: "distilbert-base-uncased-finetuned-sst-2-english"
+            - name: THRESHOLD
+              value: "0.5"
+          ports:
+            - containerPort: 8080
+      nodeSelector:
+        kubernetes.io/hostname: your-gpu-node
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lotabots-plugin-service
+spec:
+  selector:
+    app: lotabots-plugin
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

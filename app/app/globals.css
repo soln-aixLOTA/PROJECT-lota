@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 0 0% 4%;
+        --foreground: 0 0% 100%;
+        --card: 0 0% 6%;
+        --card-foreground: 0 0% 100%;
+        --popover: 0 0% 6%;
+        --popover-foreground: 0 0% 100%;
+        --primary: 187 100% 50%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 0 0% 9%;
+        --secondary-foreground: 0 0% 100%;
+        --accent: 187 100% 50%;
+        --accent-foreground: 0 0% 100%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 0 0% 12%;
+        --input: 0 0% 12%;
+        --ring: 187 100% 50%;
+    }
+
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+        font-feature-settings: "rlig" 1, "calt" 1;
+    }
+}
+
+@layer components {
+    .gradient-text {
+        @apply bg-gradient-to-r from-accent via-accent/50 to-accent bg-clip-text text-transparent;
+    }
+
+    .glass-panel {
+        @apply bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg;
+    }
+
+    .nav-link {
+        @apply relative text-sm font-medium text-white/70 hover:text-white transition-colors;
+    }
+
+    .nav-link::after {
+        content: '';
+        @apply absolute left-0 bottom-0 w-0 h-0.5 bg-accent transition-all duration-300;
+    }
+
+    .nav-link:hover::after {
+        @apply w-full;
+    }
+
+    .button-primary {
+        @apply px-6 py-3 bg-accent text-white font-medium rounded-lg hover:bg-accent-dark transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-background;
+    }
+
+    .button-secondary {
+        @apply px-6 py-3 bg-secondary text-white font-medium rounded-lg hover:bg-secondary/80 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-background;
+    }
+
+    .input-field {
+        @apply w-full px-4 py-3 bg-secondary rounded-lg border border-white/10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    @apply bg-secondary;
+}
+
+::-webkit-scrollbar-thumb {
+    @apply bg-accent/50 rounded-full hover:bg-accent transition-colors;
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}

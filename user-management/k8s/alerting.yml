@@ -1,0 +1,175 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: lotabots
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+      slack_api_url: 'https://hooks.slack.com/services/your-webhook-url'
+
+    route:
+      group_by: ['tenant', 'alertname']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: 'slack-notifications'
+      routes:
+        - match:
+            severity: critical
+          receiver: 'slack-critical'
+          continue: true
+        - match:
+            severity: warning
+          receiver: 'slack-warnings'
+
+    receivers:
+      - name: 'slack-notifications'
+        slack_configs:
+          - channel: '#monitoring'
+            title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+            text: >-
+              {{ range .Alerts }}
+              *Alert:* {{ .Annotations.summary }}
+              *Description:* {{ .Annotations.description }}
+              *Severity:* {{ .Labels.severity }}
+              *Tenant:* {{ .Labels.tenant }}
+              {{ end }}
+
+      - name: 'slack-critical'
+        slack_configs:
+          - channel: '#incidents'
+            title: '[CRITICAL] {{ .CommonLabels.alertname }}'
+            text: >-
+              {{ range .Alerts }}
+              *Alert:* {{ .Annotations.summary }}
+              *Description:* {{ .Annotations.description }}
+              *Severity:* {{ .Labels.severity }}
+              *Tenant:* {{ .Labels.tenant }}
+              {{ end }}
+
+      - name: 'slack-warnings'
+        slack_configs:
+          - channel: '#warnings'
+            title: '[WARNING] {{ .CommonLabels.alertname }}'
+            text: >-
+              {{ range .Alerts }}
+              *Alert:* {{ .Annotations.summary }}
+              *Description:* {{ .Annotations.description }}
+              *Severity:* {{ .Labels.severity }}
+              *Tenant:* {{ .Labels.tenant }}
+              {{ end }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: lotabots
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      containers:
+        - name: alertmanager
+          image: prom/alertmanager:v0.25.0
+          args:
+            - '--config.file=/etc/alertmanager/alertmanager.yml'
+            - '--storage.path=/alertmanager'
+          ports:
+            - containerPort: 9093
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alertmanager/alertmanager.yml
+              subPath: alertmanager.yml
+            - name: alertmanager-data
+              mountPath: /alertmanager
+      volumes:
+        - name: config
+          configMap:
+            name: alertmanager-config
+        - name: alertmanager-data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: lotabots
+spec:
+  ports:
+    - port: 9093
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: alertmanager
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: lotabots
+data:
+  tenant_rules.yml: |
+    groups:
+      - name: tenant_alerts
+        rules:
+          - alert: TenantNearQuota
+            expr: |
+              (
+                rate(http_requests_total[5m]) /
+                tenant_quota_requests_per_day * 86400
+              ) > 0.9
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Tenant {{ $labels.tenant }} is approaching request quota
+              description: Current usage is {{ $value | printf "%.2f" }}% of daily limit
+
+          - alert: TenantExceededQuota
+            expr: |
+              (
+                rate(http_requests_total[5m]) /
+                tenant_quota_requests_per_day * 86400
+              ) > 1.0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: Tenant {{ $labels.tenant }} has exceeded request quota
+              description: Current usage is {{ $value | printf "%.2f" }}% of daily limit
+
+          - alert: HighErrorRate
+            expr: |
+              sum(rate(http_requests_total{status=~"5.."}[5m])) by (tenant) /
+              sum(rate(http_requests_total[5m])) by (tenant) > 0.05
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: High error rate for tenant {{ $labels.tenant }}
+              description: Error rate is {{ $value | printf "%.2f" }}%
+
+          - alert: SlowResponses
+            expr: |
+              histogram_quantile(0.95,
+                sum(rate(http_request_duration_seconds_bucket[5m])) by (tenant, le)
+              ) > 1.0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Slow responses for tenant {{ $labels.tenant }}
+              description: 95th percentile latency is {{ $value | printf "%.2f" }}s 

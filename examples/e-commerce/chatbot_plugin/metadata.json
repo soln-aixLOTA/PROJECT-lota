@@ -1,0 +1,39 @@
+{
+    "name": "ecommerce_chatbot",
+    "version": "1.0.0",
+    "plugin_type": "model",
+    "description": "A chatbot plugin for e-commerce customer service",
+    "author": "LotaBots",
+    "dependencies": [
+        "transformers>=4.30.0",
+        "torch>=2.0.0",
+        "numpy>=1.24.0"
+    ],
+    "config_schema": {
+        "type": "object",
+        "properties": {
+            "model_name": {
+                "type": "string",
+                "description": "Name of the pre-trained model to use"
+            },
+            "max_length": {
+                "type": "integer",
+                "description": "Maximum length of generated responses",
+                "default": 128
+            },
+            "temperature": {
+                "type": "number",
+                "description": "Sampling temperature for response generation",
+                "default": 0.7
+            },
+            "product_catalog_path": {
+                "type": "string",
+                "description": "Path to the product catalog data"
+            }
+        },
+        "required": [
+            "model_name",
+            "product_catalog_path"
+        ]
+    }
+}

@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-service
+spec:
+  replicas: 3 # Start with 3 replicas
+  selector:
+    matchLabels:
+      app: inference-service
+  template:
+    metadata:
+      labels:
+        app: inference-service
+        tier: professional # Label pods with their tier
+    spec:
+      containers:
+      - name: inference-container
+        image: inference-service:latest
+        resources:
+          limits:
+            cpu: "2" # Allocate 2 CPU cores
+            memory: "4Gi" # Allocate 4GB of memory
+            nvidia.com/gpu: "1" # Allocate 1 GPU (if available)
+          requests:
+            cpu: "1" # Request 1 CPU core
+            memory: "2Gi" # Request 2GB of memory
+            nvidia.com/gpu: "1" # Request 1 GPU 

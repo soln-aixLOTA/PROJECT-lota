@@ -1,0 +1,29 @@
+{
+    "name": "diagnosis_assistance",
+    "version": "1.0.0",
+    "plugin_type": "model",
+    "description": "A plugin for assisting with patient diagnosis in healthcare",
+    "author": "LotaBots",
+    "dependencies": [
+        "transformers>=4.30.0",
+        "torch>=2.0.0",
+        "numpy>=1.24.0"
+    ],
+    "config_schema": {
+        "type": "object",
+        "properties": {
+            "model_name": {
+                "type": "string",
+                "description": "Name of the pre-trained model to use"
+            },
+            "symptom_threshold": {
+                "type": "number",
+                "description": "Threshold for suggesting a diagnosis based on symptoms",
+                "default": 0.5
+            }
+        },
+        "required": [
+            "model_name"
+        ]
+    }
+}

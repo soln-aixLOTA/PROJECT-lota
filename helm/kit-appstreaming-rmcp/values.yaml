@@ -1,0 +1,5 @@
+helm_repositories:
+  - name: ngc-omniverse
+    url: https://helm.ngc.nvidia.com/nvidia/omniverse/
+    interval: 5m
+    secretRef: ngc-omni-user 

@@ -1,0 +1,122 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'user-management'
+    static_configs:
+      - targets: ['app:8080']
+    metrics_path: '/metrics'
+    scheme: 'http'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # AlertManager configuration can be added here
+
+rule_files:
+  # Alert and recording rules can be added here
+
+# Custom configurations for tenant monitoring
+scrape_configs:
+  - job_name: 'tenant-metrics'
+    static_configs:
+      - targets: ['app:8080']
+    metrics_path: '/metrics'
+    scheme: 'http'
+    metric_relabel_configs:
+      - source_labels: [tenant_id]
+        target_label: tenant
+      - source_labels: [subscription_tier]
+        target_label: tier
+
+# Recording rules for tenant usage
+rules:
+  - name: tenant_usage_rules
+    interval: 1m
+    rules:
+      - record: tenant:request_rate:5m
+        expr: |
+          rate(http_requests_total[5m])
+      - record: tenant:gpu_usage:5m
+        expr: |
+          rate(gpu_time_seconds_sum[5m])
+      - record: tenant:data_transfer:5m
+        expr: |
+          rate(data_processed_bytes_total[5m])
+
+# Alert rules for tenant limits
+rules:
+  - name: tenant_alert_rules
+    rules:
+      - alert: TenantNearQuota
+        expr: |
+          (
+            rate(http_requests_total[5m]) /
+            tenant_quota_requests_per_day * 86400
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Tenant {{ $labels.tenant }} is approaching request quota
+          description: Current usage is {{ $value | printf "%.2f" }}% of daily limit
+
+      - alert: TenantExceededQuota
+        expr: |
+          (
+            rate(http_requests_total[5m]) /
+            tenant_quota_requests_per_day * 86400
+          ) > 1.0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Tenant {{ $labels.tenant }} has exceeded request quota
+          description: Current usage is {{ $value | printf "%.2f" }}% of daily limit
+
+      - alert: HighGPUUsage
+        expr: |
+          (
+            rate(gpu_time_seconds_sum[5m]) /
+            tenant_quota_gpu_minutes * 60
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Tenant {{ $labels.tenant }} is approaching GPU quota
+          description: Current usage is {{ $value | printf "%.2f" }}% of limit
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (tenant) /
+          sum(rate(http_requests_total[5m])) by (tenant) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High error rate for tenant {{ $labels.tenant }}
+          description: Error rate is {{ $value | printf "%.2f" }}%
+
+      - alert: SlowResponses
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (tenant, le)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Slow responses for tenant {{ $labels.tenant }}
+          description: 95th percentile latency is {{ $value | printf "%.2f" }}s 

@@ -1,0 +1,426 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nim-embedding-service
+  namespace: lotabots
+  labels:
+    app: nim-embedding-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nim-embedding-service
+  template:
+    metadata:
+      labels:
+        app: nim-embedding-service
+      annotations:
+        nvidia.com/gpu-accelerated: "true"
+        nvidia.com/mps-capable: "true"
+    spec:
+      runtimeClassName: nvidia
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        nameservers:
+        - "8.8.8.8"
+        - "8.8.4.4"
+      initContainers:
+      - name: model-downloader
+        image: ubuntu:22.04
+        command: ["/bin/bash"]
+        args: ["-c", "apt-get update && apt-get install -y curl jq && /scripts/model-download.sh"]
+      containers:
+      - name: nim-embedding
+        image: nvcr.io/nim/nvidia/nv-embedqa-e5-v5:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8001
+          name: http
+        - containerPort: 8002
+          name: metrics
+        resources:
+          requests:
+            cpu: "4"
+            memory: "16Gi"
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "8"
+            memory: "32Gi"
+            nvidia.com/gpu: "1"
+        envFrom:
+        - configMapRef:
+            name: nim-config
+        - secretRef:
+            name: nvidia-api-secret
+        volumeMounts:
+        - name: models
+          mountPath: /models
+        - name: scripts
+          mountPath: /scripts
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: nim-models-pvc
+      - name: cache
+        emptyDir:
+          medium: Memory
+          sizeLimit: "4Gi"
+      - name: config
+        configMap:
+          name: nim-model-config
+      - name: scripts
+        configMap:
+          name: model-download-script
+          defaultMode: 0755
+      imagePullSecrets:
+      - name: nvidia-ngc-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nim-rerank-service
+  namespace: lotabots
+  labels:
+    app: nim-rerank-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nim-rerank-service
+  template:
+    metadata:
+      labels:
+        app: nim-rerank-service
+      annotations:
+        nvidia.com/gpu-accelerated: "true"
+        nvidia.com/mps-capable: "true"
+    spec:
+      runtimeClassName: nvidia
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        nameservers:
+        - "8.8.8.8"
+        - "8.8.4.4"
+      initContainers:
+      - name: model-downloader
+        image: ubuntu:22.04
+        command: ["/bin/bash"]
+        args: ["-c", "apt-get update && apt-get install -y curl jq && /scripts/model-download.sh"]
+      containers:
+      - name: nim-rerank
+        image: nvcr.io/nim/nvidia/nv-rerankqa-mistral-4b-v3:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8002
+          name: http
+        - containerPort: 8003
+          name: metrics
+        resources:
+          requests:
+            cpu: "4"
+            memory: "16Gi"
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "8"
+            memory: "32Gi"
+            nvidia.com/gpu: "1"
+        envFrom:
+        - configMapRef:
+            name: nim-config
+        - secretRef:
+            name: nvidia-api-secret
+        volumeMounts:
+        - name: models
+          mountPath: /models
+        - name: cache
+          mountPath: /cache
+        - name: config
+          mountPath: /config
+        livenessProbe:
+          httpGet:
+            path: /v1/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /v1/health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        env:
+        - name: NGC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nvidia-api-secret
+              key: NVIDIA_API_KEY
+        - name: LOCAL_NIM_CACHE
+          value: "/opt/nim/.cache"
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "1"
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: nim-models-pvc
+      - name: cache
+        emptyDir:
+          medium: Memory
+          sizeLimit: "4Gi"
+      - name: config
+        configMap:
+          name: nim-model-config
+      - name: scripts
+        configMap:
+          name: model-download-script
+          defaultMode: 0755
+      imagePullSecrets:
+      - name: nvidia-ngc-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nim-llm-service
+  namespace: lotabots
+  labels:
+    app: nim-llm-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nim-llm-service
+  template:
+    metadata:
+      labels:
+        app: nim-llm-service
+      annotations:
+        nvidia.com/gpu-accelerated: "true"
+        nvidia.com/mps-capable: "true"
+    spec:
+      runtimeClassName: nvidia
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        nameservers:
+        - "8.8.8.8"
+        - "8.8.4.4"
+      initContainers:
+      - name: model-downloader
+        image: ubuntu:22.04
+        command: ["/bin/bash"]
+        args: ["-c", "apt-get update && apt-get install -y curl jq && /scripts/model-download.sh"]
+      containers:
+      - name: nim-llm
+        image: nvcr.io/nim/meta/llama3-8b-instruct:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        - containerPort: 8002
+          name: metrics
+        resources:
+          requests:
+            cpu: "8"
+            memory: "32Gi"
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "16"
+            memory: "64Gi"
+            nvidia.com/gpu: "1"
+        envFrom:
+        - configMapRef:
+            name: nim-config
+        - secretRef:
+            name: nvidia-api-secret
+        volumeMounts:
+        - name: models
+          mountPath: /models
+        - name: cache
+          mountPath: /cache
+        - name: config
+          mountPath: /config
+        livenessProbe:
+          httpGet:
+            path: /v1/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /v1/health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        env:
+        - name: NGC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nvidia-api-secret
+              key: NVIDIA_API_KEY
+        - name: LOCAL_NIM_CACHE
+          value: "/opt/nim/.cache"
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "2"
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: nim-models-pvc
+      - name: cache
+        emptyDir:
+          medium: Memory
+          sizeLimit: "8Gi"
+      - name: config
+        configMap:
+          name: nim-model-config
+      - name: scripts
+        configMap:
+          name: model-download-script
+          defaultMode: 0755
+      imagePullSecrets:
+      - name: nvidia-ngc-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nim-embedding-service
+  namespace: lotabots
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8001
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 8002
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    app: nim-embedding-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nim-rerank-service
+  namespace: lotabots
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8002
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 8003
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    app: nim-rerank-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nim-llm-service
+  namespace: lotabots
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 8002
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    app: nim-llm-service
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nim-models-pvc
+  namespace: lotabots
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 500Gi
+  storageClassName: nfs-client
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nim-embedding-hpa
+  namespace: lotabots
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nim-embedding-service
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 85
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nim-rerank-hpa
+  namespace: lotabots
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nim-rerank-service
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 85
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nim-llm-hpa
+  namespace: lotabots
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nim-llm-service
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 85 

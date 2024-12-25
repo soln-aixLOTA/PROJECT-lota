@@ -1,0 +1,15 @@
+# Example configuration schema
+model:
+  name: string
+  version: string
+  type: enum[classification, regression, nlp, vision]
+  parameters: object
+
+pipeline:
+  steps: array
+  config: object
+
+deployment:
+  resources: object
+  scaling: object
+  monitoring: object 

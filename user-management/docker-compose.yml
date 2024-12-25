@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      - RUST_LOG=debug
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/lotabots_user_management
+      - JWT_SECRET=development-secret-key
+      - JWT_EXPIRATION=3600
+      - RATE_LIMIT_BURST=100
+      - RATE_LIMIT_REPLENISH=10
+      - METRICS_PORT=9090
+    depends_on:
+      - db
+    volumes:
+      - .:/usr/src/user-management
+      - target:/usr/src/user-management/target
+    networks:
+      - lotabots-network
+
+  db:
+    image: postgres:14-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=lotabots_user_management
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - lotabots-network
+
+  db-test:
+    image: postgres:14-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=lotabots_user_management_test
+    networks:
+      - lotabots-network
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - lotabots-network
+
+  grafana:
+    image: grafana/grafana:10.0.3
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - lotabots-network
+
+volumes:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+  target:
+
+
+networks:
+  lotabots-network:
+    driver: bridge

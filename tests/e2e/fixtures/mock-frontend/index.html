@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LotaBots Platform</title>
+    <style>
+        .form-container {
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .error-message {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .success-message {
+            color: green;
+            margin-top: 10px;
+            display: block;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #training-progress,
+        #deployment-progress {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            display: none;
+        }
+
+        #bot-response,
+        #response-time,
+        #token-usage {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Registration Form -->
+    <div id="register-form" class="form-container">
+        <h2>Register</h2>
+        <form id="registration">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" data-cy="email-input" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" data-cy="password-input" required>
+            </div>
+            <div class="form-group">
+                <label for="firstName">First Name</label>
+                <input type="text" id="firstName" data-cy="first-name-input" required>
+            </div>
+            <div class="form-group">
+                <label for="lastName">Last Name</label>
+                <input type="text" id="lastName" data-cy="last-name-input" required>
+            </div>
+            <button type="submit" class="button" data-cy="register-button">Register</button>
+            <div class="error-message" data-cy="error-message"></div>
+        </form>
+    </div>
+
+    <!-- Login Form -->
+    <div id="login-form" class="form-container hidden">
+        <h2>Login</h2>
+        <form id="login">
+            <div class="form-group">
+                <label for="loginEmail">Email</label>
+                <input type="email" id="loginEmail" data-cy="email-input" required>
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" data-cy="password-input" required>
+            </div>
+            <button type="submit" class="button" data-cy="login-button">Login</button>
+            <div class="error-message" data-cy="error-message"></div>
+        </form>
+    </div>
+
+    <!-- Profile Form -->
+    <div id="profile-form" class="form-container hidden">
+        <h2>Profile</h2>
+        <form id="profile">
+            <div class="form-group">
+                <label for="profileFirstName">First Name</label>
+                <input type="text" id="profileFirstName" data-cy="first-name-input" required>
+            </div>
+            <div class="form-group">
+                <label for="profileLastName">Last Name</label>
+                <input type="text" id="profileLastName" data-cy="last-name-input" required>
+            </div>
+            <div class="form-group">
+                <label for="profilePhone">Phone Number</label>
+                <input type="tel" id="profilePhone" data-cy="phone-input">
+            </div>
+            <button type="submit" class="button" data-cy="save-profile-button">Save Profile</button>
+            <div class="success-message" data-cy="success-message"></div>
+        </form>
+    </div>
+
+    <!-- Email Verification Page -->
+    <div id="verify-email" class="form-container hidden">
+        <h2>Email Verification</h2>
+        <p>Please verify your email</p>
+    </div>
+
+    <!-- User Menu -->
+    <div id="user-menu" class="hidden" data-cy="user-menu">
+        <span id="userEmail"></span>
+        <button onclick="logout()" class="button">Logout</button>
+    </div>
+
+    <!-- Bot Management -->
+    <div id="bot-management" class="form-container">
+        <h2>Bot Management</h2>
+        <form id="bot-creation">
+            <div class="form-group">
+                <label for="botName">Bot Name</label>
+                <input type="text" id="botName" data-cy="bot-name-input" required>
+            </div>
+            <div class="form-group">
+                <label for="botModel">Model</label>
+                <select id="botModel" data-cy="bot-model-select" required>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="gpt-3.5">GPT-3.5</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="botDescription">Description</label>
+                <textarea id="botDescription" data-cy="bot-description-input"></textarea>
+            </div>
+            <button type="submit" class="button" data-cy="create-bot-button">Create Bot</button>
+            <div class="error-message" data-cy="error-message"></div>
+            <div class="success-message" data-cy="success-message">Bot created successfully</div>
+        </form>
+    </div>
+
+    <!-- Bot Training -->
+    <div id="bot-training" class="form-container">
+        <h2>Bot Training</h2>
+        <form id="training-form">
+            <div class="form-group">
+                <label for="training-data-upload">Training Data</label>
+                <input type="file" id="training-data-upload" data-cy="training-data-upload" accept=".jsonl,.txt">
+            </div>
+            <button type="submit" class="button" data-cy="start-training-button">Start Training</button>
+            <div class="error-message" data-cy="error-message"></div>
+            <div class="success-message" data-cy="success-message">Training started successfully</div>
+        </form>
+        <div id="training-status" data-cy="training-status"></div>
+        <div id="training-progress" data-cy="training-progress"></div>
+    </div>
+
+    <!-- Bot Deployment -->
+    <div id="bot-deployment" class="form-container">
+        <h2>Bot Deployment</h2>
+        <form id="deployment-form">
+            <div class="form-group">
+                <label for="deploymentEnv">Environment</label>
+                <select id="deploymentEnv" data-cy="deployment-env-select" required>
+                    <option value="production">Production</option>
+                    <option value="staging">Staging</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="minReplicas">Min Replicas</label>
+                <input type="number" id="minReplicas" data-cy="min-replicas-input" min="1" value="1" required>
+            </div>
+            <div class="form-group">
+                <label for="maxReplicas">Max Replicas</label>
+                <input type="number" id="maxReplicas" data-cy="max-replicas-input" min="1" value="5" required>
+            </div>
+            <button type="submit" class="button" data-cy="confirm-deployment-button">Deploy</button>
+            <div class="error-message" data-cy="error-message"></div>
+            <div class="success-message" data-cy="success-message">Deployment started successfully</div>
+        </form>
+        <div id="deployment-status" data-cy="deployment-status"></div>
+        <div id="deployment-progress" data-cy="deployment-progress"></div>
+    </div>
+
+    <!-- Bot Inference -->
+    <div id="bot-inference" class="form-container">
+        <h2>Bot Testing</h2>
+        <form id="inference-form">
+            <div class="form-group">
+                <label for="testInput">Test Input</label>
+                <textarea id="testInput" data-cy="test-input" required></textarea>
+            </div>
+            <button type="submit" class="button" data-cy="send-test-button">Send</button>
+            <div class="error-message" data-cy="error-message"></div>
+            <div class="success-message" data-cy="success-message">Inference completed successfully</div>
+        </form>
+        <div id="bot-response" data-cy="bot-response"></div>
+        <div id="response-time" data-cy="response-time"></div>
+        <div id="token-usage" data-cy="token-usage"></div>
+    </div>
+
+    <script>
+        // Show appropriate form based on URL
+        function showForm() {
+            const path = window.location.pathname;
+            document.querySelectorAll('.form-container').forEach(form => form.classList.add('hidden'));
+
+            switch (path) {
+                case '/register':
+                    document.getElementById('register-form').classList.remove('hidden');
+                    break;
+                case '/login':
+                    document.getElementById('login-form').classList.remove('hidden');
+                    break;
+                case '/profile':
+                    document.getElementById('profile-form').classList.remove('hidden');
+                    break;
+                case '/verify-email':
+                    document.getElementById('verify-email').classList.remove('hidden');
+                    break;
+                default:
+                    // Show all forms for testing
+                    document.querySelectorAll('.form-container').forEach(form => form.classList.remove('hidden'));
+            }
+        }
+
+        // Handle form submissions
+        document.addEventListener('DOMContentLoaded', () => {
+            // Bot Creation
+            document.getElementById('bot-creation').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = {
+                    name: document.getElementById('botName').value,
+                    model: document.getElementById('botModel').value,
+                    description: document.getElementById('botDescription').value
+                };
+
+                try {
+                    const response = await fetch('http://localhost:8080/api/bots', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(formData)
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        document.querySelector('#bot-creation .success-message').textContent = 'Bot created successfully';
+                        document.querySelector('#bot-creation .success-message').style.display = 'block';
+                        document.querySelector('#bot-creation .error-message').style.display = 'none';
+                    } else {
+                        document.querySelector('#bot-creation .error-message').textContent = data.error;
+                        document.querySelector('#bot-creation .error-message').style.display = 'block';
+                        document.querySelector('#bot-creation .success-message').style.display = 'none';
+                    }
+                } catch (error) {
+                    document.querySelector('#bot-creation .error-message').textContent = 'Failed to create bot';
+                    document.querySelector('#bot-creation .error-message').style.display = 'block';
+                    document.querySelector('#bot-creation .success-message').style.display = 'none';
+                }
+            });
+
+            // Bot Training
+            document.getElementById('training-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData();
+                formData.append('file', document.getElementById('training-data-upload').files[0]);
+
+                try {
+                    const response = await fetch('http://localhost:8080/api/bots/bot1/train', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        document.getElementById('training-status').textContent = 'Training in progress';
+                        document.getElementById('training-progress').style.display = 'block';
+                        document.querySelector('#training-form .success-message').style.display = 'block';
+                        document.querySelector('#training-form .error-message').style.display = 'none';
+                    } else {
+                        document.querySelector('#training-form .error-message').textContent = data.error;
+                        document.querySelector('#training-form .error-message').style.display = 'block';
+                        document.querySelector('#training-form .success-message').style.display = 'none';
+                    }
+                } catch (error) {
+                    document.querySelector('#training-form .error-message').textContent = 'Failed to start training';
+                    document.querySelector('#training-form .error-message').style.display = 'block';
+                    document.querySelector('#training-form .success-message').style.display = 'none';
+                }
+            });
+
+            // Bot Deployment
+            document.getElementById('deployment-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = {
+                    environment: document.getElementById('deploymentEnv').value,
+                    minReplicas: parseInt(document.getElementById('minReplicas').value),
+                    maxReplicas: parseInt(document.getElementById('maxReplicas').value)
+                };
+
+                try {
+                    const response = await fetch('http://localhost:8080/api/bots/bot1/deploy', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(formData)
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        document.getElementById('deployment-status').textContent = 'Deployment in progress';
+                        document.getElementById('deployment-progress').style.display = 'block';
+                        document.querySelector('#deployment-form .success-message').style.display = 'block';
+                        document.querySelector('#deployment-form .error-message').style.display = 'none';
+                    } else {
+                        document.querySelector('#deployment-form .error-message').textContent = data.error;
+                        document.querySelector('#deployment-form .error-message').style.display = 'block';
+                        document.querySelector('#deployment-form .success-message').style.display = 'none';
+                    }
+                } catch (error) {
+                    document.querySelector('#deployment-form .error-message').textContent = 'Failed to deploy bot';
+                    document.querySelector('#deployment-form .error-message').style.display = 'block';
+                    document.querySelector('#deployment-form .success-message').style.display = 'none';
+                }
+            });
+
+            // Bot Inference
+            document.getElementById('inference-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = {
+                    input: document.getElementById('testInput').value
+                };
+
+                try {
+                    const response = await fetch('http://localhost:8080/api/bots/bot1/infer', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(formData)
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        document.getElementById('bot-response').textContent = data.response;
+                        document.getElementById('bot-response').style.display = 'block';
+                        document.getElementById('response-time').textContent = `Response time: ${data.responseTime}ms`;
+                        document.getElementById('response-time').style.display = 'block';
+                        document.getElementById('token-usage').textContent = `Token usage: ${data.tokenUsage}`;
+                        document.getElementById('token-usage').style.display = 'block';
+                        document.querySelector('#inference-form .success-message').style.display = 'block';
+                        document.querySelector('#inference-form .error-message').style.display = 'none';
+                    } else {
+                        document.querySelector('#inference-form .error-message').textContent = data.error;
+                        document.querySelector('#inference-form .error-message').style.display = 'block';
+                        document.querySelector('#inference-form .success-message').style.display = 'none';
+                    }
+                } catch (error) {
+                    document.querySelector('#inference-form .error-message').textContent = 'Failed to make inference request';
+                    document.querySelector('#inference-form .error-message').style.display = 'block';
+                    document.querySelector('#inference-form .success-message').style.display = 'none';
+                }
+            });
+        });
+
+        // Initialize
+        showForm();
+    </script>
+</body>
+
+</html>

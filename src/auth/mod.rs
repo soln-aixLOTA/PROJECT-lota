@@ -1,0 +1,3 @@
+pub fn decode_jwt(token: &str) -> Result<Claims, SomeError> {
+    // Actual decode implementation...
+} 

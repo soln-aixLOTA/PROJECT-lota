@@ -1,0 +1,29 @@
+{
+    "name": "fraud_detection",
+    "version": "1.0.0",
+    "plugin_type": "model",
+    "description": "A plugin for detecting fraudulent transactions in financial services",
+    "author": "LotaBots",
+    "dependencies": [
+        "transformers>=4.30.0",
+        "torch>=2.0.0",
+        "numpy>=1.24.0"
+    ],
+    "config_schema": {
+        "type": "object",
+        "properties": {
+            "model_name": {
+                "type": "string",
+                "description": "Name of the pre-trained model to use"
+            },
+            "threshold": {
+                "type": "number",
+                "description": "Threshold for classifying a transaction as fraudulent",
+                "default": 0.5
+            }
+        },
+        "required": [
+            "model_name"
+        ]
+    }
+}

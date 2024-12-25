@@ -1,0 +1,24 @@
+# Basic configuration for Manager service
+service:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+    - name: https
+      port: 443
+      targetPort: 8443
+    - name: streaming
+      port: 47998
+      targetPort: 47998
+      protocol: UDP
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  hosts:
+    - host: streaming.local
+      paths:
+        - path: /
+          pathType: Prefix 

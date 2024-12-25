@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nvidia-config
+  namespace: lotabots
+data:
+  NVIDIA_DRIVER_CAPABILITIES: "compute,utility,video"
+  NVIDIA_VISIBLE_DEVICES: "all"
+  NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
+  NVIDIA_REQUIRE_DRIVER: ">=525.60.13"
+  GPU_MEMORY_FRACTION: "0.8"
+  ENABLE_MIG: "true"
+  ENABLE_GPU_METRICS: "true"
+  DCGM_EXPORTER_ENABLED: "true"
+  NVIDIA_MPS_ACTIVE: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: triton-config
+  namespace: lotabots
+data:
+  triton.config: |
+    # Server configuration
+    max_batch_size: 128
+    batching_timeout_microseconds: 500
+    cache_enabled: true
+    cache_size: 268435456  # 256MB model cache
+    
+    # Dynamic batching configuration
+    dynamic_batching {
+      preferred_batch_size: [16, 32, 64, 128]
+      max_queue_delay_microseconds: 100
+      preserve_ordering: true
+      priority_levels: 3
+      default_priority_level: 1
+      max_queue_size: 1024
+    }
+    
+    # Instance group configuration
+    instance_group [
+      {
+        kind: KIND_GPU
+        count: 2
+        gpus: [0]
+        profile: ["default", "low_latency"]
+      }
+    ]
+    
+    # Optimization settings
+    optimization {
+      cuda {
+        graphs: true
+        graph_spec: [
+          {
+            batch_size: 1
+            input_shapes {
+              "input": [1, 224, 224, 3]
+            }
+          },
+          {
+            batch_size: 8
+            input_shapes {
+              "input": [8, 224, 224, 3]
+            }
+          }
+        ]
+        stream_priority: true
+        inference_stream_count: 4
+        output_copy_stream_count: 2
+        memory_pool_byte_size: 67108864  # 64MB
+      }
+      
+      execution_accelerators {
+        gpu_execution_accelerator: [
+          {
+            name: "tensorrt"
+            parameters {
+              key: "precision_mode"
+              value: "FP16"
+            }
+            parameters {
+              key: "max_workspace_size_bytes"
+              value: "1073741824"  # 1GB
+            }
+            parameters {
+              key: "cuda_graph_enable"
+              value: "true"
+            }
+          }
+        ]
+      }
+      
+      input_pinned_memory: true
+      output_pinned_memory: true
+      gather_kernel_buffer_threshold: 0
+      eager_batching: true
+    }
+    
+    # Metrics configuration
+    metrics {
+      enable: true
+      allow_metrics_labels: true
+      gpu_metrics_interval_ms: 1000
+    }
+    
+    # Logging configuration
+    log_verbose: 0
+    log_format: "default"
+    log_error_format: "detailed"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rapids-config
+  namespace: lotabots
+data:
+  RAPIDS_MEMORY_POOL_SIZE: "8G"
+  RAPIDS_ENABLE_NVLINK: "true"
+  RAPIDS_ENABLE_RMEM: "true"
+  RAPIDS_SPILL_THRESHOLD: "0.95"
+  RAPIDS_CUDA_MALLOC_ASYNC: "1"
+  RAPIDS_POOL_SIZE_MULTIPLIER: "1.2"
+  RAPIDS_MAX_POOLING_SIZE: "12G"
+  RAPIDS_ENABLE_PEER_MEMORY: "1"
+  RAPIDS_ENABLE_IPC: "1" 

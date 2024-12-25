@@ -1,0 +1,106 @@
+{
+    "products": [
+        {
+            "id": "laptop-001",
+            "name": "ProBook X1",
+            "category": "Electronics",
+            "price": 999.99,
+            "description": "High-performance laptop with 16GB RAM, 512GB SSD, and NVIDIA GPU",
+            "specifications": {
+                "processor": "Intel Core i7",
+                "ram": "16GB DDR4",
+                "storage": "512GB NVMe SSD",
+                "gpu": "NVIDIA RTX 3060",
+                "display": "15.6-inch 4K",
+                "battery": "8 hours"
+            },
+            "in_stock": true,
+            "stock_count": 50
+        },
+        {
+            "id": "phone-001",
+            "name": "SmartPhone Pro",
+            "category": "Electronics",
+            "price": 799.99,
+            "description": "Premium smartphone with 5G, 128GB storage, and AI-powered camera",
+            "specifications": {
+                "processor": "Snapdragon 8 Gen 2",
+                "ram": "8GB",
+                "storage": "128GB",
+                "camera": "48MP main + 12MP ultra-wide",
+                "display": "6.5-inch OLED",
+                "battery": "4500mAh"
+            },
+            "in_stock": true,
+            "stock_count": 100
+        },
+        {
+            "id": "headphones-001",
+            "name": "AudioMax Pro",
+            "category": "Electronics",
+            "price": 199.99,
+            "description": "Wireless noise-canceling headphones with premium sound quality",
+            "specifications": {
+                "type": "Over-ear",
+                "connectivity": "Bluetooth 5.0",
+                "battery": "30 hours",
+                "noise_canceling": true,
+                "water_resistant": true
+            },
+            "in_stock": true,
+            "stock_count": 75
+        },
+        {
+            "id": "smartwatch-001",
+            "name": "FitWatch X",
+            "category": "Electronics",
+            "price": 299.99,
+            "description": "Advanced smartwatch with fitness tracking and health monitoring",
+            "specifications": {
+                "display": "1.4-inch AMOLED",
+                "sensors": [
+                    "Heart rate",
+                    "SpO2",
+                    "GPS"
+                ],
+                "battery": "5 days",
+                "water_resistant": "5ATM",
+                "connectivity": "Bluetooth 5.0"
+            },
+            "in_stock": false,
+            "stock_count": 0
+        },
+        {
+            "id": "tablet-001",
+            "name": "TabPro 12",
+            "category": "Electronics",
+            "price": 649.99,
+            "description": "12-inch tablet with stylus support and high-resolution display",
+            "specifications": {
+                "processor": "A14 Bionic",
+                "ram": "8GB",
+                "storage": "256GB",
+                "display": "12-inch Retina",
+                "battery": "10 hours",
+                "accessories": [
+                    "Stylus",
+                    "Keyboard case"
+                ]
+            },
+            "in_stock": true,
+            "stock_count": 25
+        }
+    ],
+    "categories": [
+        {
+            "id": "electronics",
+            "name": "Electronics",
+            "description": "Electronic devices and accessories"
+        }
+    ],
+    "metadata": {
+        "last_updated": "2024-03-20",
+        "version": "1.0.0",
+        "currency": "USD"
+    }
+}

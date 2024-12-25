@@ -1,0 +1,222 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: training-service
+  namespace: lotabots
+  labels:
+    app: training-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: training-service
+  template:
+    metadata:
+      labels:
+        app: training-service
+      annotations:
+        nvidia.com/gpu-accelerated: "true"
+        nvidia.com/multi-gpu-capable: "true"
+        nvidia.com/mps-capable: "true"
+    spec:
+      runtimeClassName: nvidia
+      initContainers:
+      - name: cuda-init
+        image: nvcr.io/nvidia/cuda:12.0.0-base-ubuntu22.04
+        command: ['nvidia-smi', '-pm', '1']
+        securityContext:
+          privileged: true
+      containers:
+      - name: training-service
+        image: nvcr.io/nvidia/pytorch:23.10-py3
+        imagePullPolicy: Always
+        command: ["python"]
+        args: ["-m", "torch.distributed.run", "--nproc_per_node=4", "train.py"]
+        ports:
+        - containerPort: 8001
+          name: http
+        - containerPort: 9090
+          name: metrics
+        - containerPort: 29500
+          name: dist-sync
+        resources:
+          requests:
+            cpu: "8"
+            memory: "32Gi"
+            nvidia.com/gpu: "2"
+            nvidia.com/gpu-memory: "32Gi"
+          limits:
+            cpu: "16"
+            memory: "64Gi"
+            nvidia.com/gpu: "4"
+            nvidia.com/gpu-memory: "64Gi"
+        envFrom:
+        - configMapRef:
+            name: nvidia-config
+        env:
+        - name: NCCL_DEBUG
+          value: "INFO"
+        - name: NCCL_SOCKET_IFNAME
+          value: "eth0"
+        - name: NCCL_IB_DISABLE
+          value: "1"
+        - name: NCCL_P2P_DISABLE
+          value: "0"
+        - name: NCCL_NVLINK_DISABLE
+          value: "0"
+        - name: OMP_NUM_THREADS
+          value: "8"
+        - name: CUDA_DEVICE_MAX_CONNECTIONS
+          value: "1"
+        - name: PYTORCH_CUDA_ALLOC_CONF
+          value: "max_split_size_mb:512,garbage_collection_threshold:0.8"
+        - name: TORCH_DISTRIBUTED_DEBUG
+          value: "DETAIL"
+        - name: TORCH_CPP_LOG_LEVEL
+          value: "INFO"
+        - name: TORCH_DISTRIBUTED_OPTIMIZER
+          value: "true"
+        volumeMounts:
+        - name: models
+          mountPath: /models
+        - name: training-data
+          mountPath: /data
+        - name: dshm
+          mountPath: /dev/shm
+        - name: cache
+          mountPath: /cache
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 30
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: models-pvc
+      - name: training-data
+        persistentVolumeClaim:
+          claimName: training-data-pvc
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: "8Gi"
+      - name: cache
+        emptyDir:
+          medium: Memory
+          sizeLimit: "4Gi"
+      nodeSelector:
+        nvidia.com/gpu: "present"
+        nvidia.com/cuda-version: "12.0"
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: nvidia.com/gpu.product
+                operator: In
+                values:
+                - Tesla-A100
+                - Tesla-H100
+                - Tesla-V100
+              - key: nvidia.com/gpu.memory
+                operator: Gt
+                values:
+                - "32"
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - training-service
+              topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: training-service
+  namespace: lotabots
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8001
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  - port: 29500
+    targetPort: dist-sync
+    protocol: TCP
+    name: dist-sync
+  selector:
+    app: training-service
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: models-pvc
+  namespace: lotabots
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 500Gi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: training-data-pvc
+  namespace: lotabots
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1000Gi
+  storageClassName: standard
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: training-service-pdb
+  namespace: lotabots
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: training-service 

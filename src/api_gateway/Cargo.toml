@@ -1,0 +1,58 @@
+[package]
+name = "api-gateway"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Web framework
+actix-web = { version = "4.4", features = ["openssl"] }
+actix-cors = "0.6"
+actix-service = "2.0"
+
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+futures-util = "0.3"
+
+# Error handling
+thiserror = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Configuration
+config = "0.13"
+
+# Authentication
+jsonwebtoken = "9.2"
+time = { version = "0.3", features = ["serde"] }
+
+# Rate limiting
+redis = { version = "0.24", features = ["tokio-comp", "connection-manager", "aio"] }
+nonzero_ext = "0.3"
+
+# Caching
+moka = { version = "0.12", features = ["future"] }
+dashmap = "5.5"
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json"] }
+
+# Metrics and tracing
+prometheus = "0.13"
+opentelemetry = { version = "0.20", features = ["rt-tokio"] }
+opentelemetry-jaeger = { version = "0.19", features = ["rt-tokio"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-opentelemetry = "0.20"
+tracing-actix-web = "0.7"
+
+# Utilities
+num_cpus = "1.16"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+[dev-dependencies]
+actix-rt = "2.9"
+mockall = "0.12"
+tokio-test = "0.4"
+wiremock = "0.5" 

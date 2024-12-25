@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>58.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Einstein AI Demo</masterLabel>
+    <description>A comprehensive demo showcasing Einstein AI capabilities including text generation, sentiment analysis, image recognition, and chat.</description>
+    <targets>
+        <target>lightning__AppPage</target>
+        <target>lightning__RecordPage</target>
+        <target>lightning__HomePage</target>
+        <target>lightning__Tab</target>
+        <target>lightning__UtilityBar</target>
+        <target>lightning__FlowScreen</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__AppPage,lightning__HomePage,lightning__RecordPage">
+            <property name="maxTokensDefault" type="Integer" default="100" label="Default Max Tokens" description="Default maximum number of tokens for text generation"/>
+            <property name="temperatureDefault" type="Number" default="0.7" min="0" max="1" label="Default Temperature" description="Default temperature for text generation"/>
+            <property name="modelId" type="String" default="GeneralImageClassifier" label="Vision Model ID" description="Einstein Vision model ID for image analysis"/>
+        </targetConfig>
+        <targetConfig targets="lightning__FlowScreen">
+            <property name="textInput" type="String" label="Input Text" description="Text input for generation or analysis"/>
+            <property name="generatedText" type="String" label="Generated Text" description="Generated text output"/>
+            <property name="sentimentResult" type="String" label="Sentiment Result" description="Sentiment analysis result"/>
+            <property name="imageAnalysisResult" type="String" label="Image Analysis Result" description="Image analysis result"/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle> 

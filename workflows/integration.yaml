@@ -1,0 +1,152 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.10"
+  RUST_VERSION: "1.74"
+  REGISTRY: ghcr.io
+  KIND_VERSION: "v0.20.0"
+  KIND_CLUSTER_NAME: integration-test
+
+jobs:
+  setup-cluster:
+    name: Setup Test Cluster
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kind cluster
+        uses: helm/kind-action@v1.8.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          cluster_name: ${{ env.KIND_CLUSTER_NAME }}
+          config: |
+            kind: Cluster
+            apiVersion: kind.x-k8s.io/v1alpha4
+            nodes:
+            - role: control-plane
+              kubeadmConfigPatches:
+              - |
+                kind: InitConfiguration
+                nodeRegistration:
+                  kubeletExtraArgs:
+                    node-labels: "ingress-ready=true"
+              extraPortMappings:
+              - containerPort: 80
+                hostPort: 80
+                protocol: TCP
+              - containerPort: 443
+                hostPort: 443
+                protocol: TCP
+            - role: worker
+              kubeadmConfigPatches:
+              - |
+                kind: JoinConfiguration
+                nodeRegistration:
+                  kubeletExtraArgs:
+                    node-labels: "gpu=true"
+
+      - name: Set up NVIDIA device plugin
+        run: |
+          kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.14.1/nvidia-device-plugin.yml
+
+      - name: Install Istio
+        run: |
+          curl -L https://istio.io/downloadIstio | sh -
+          ./istio-*/bin/istioctl install --set profile=demo -y
+
+      - name: Install cert-manager
+        run: |
+          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.2/cert-manager.yaml
+
+      - name: Install monitoring stack
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm install monitoring prometheus-community/kube-prometheus-stack \
+            --namespace monitoring \
+            --create-namespace \
+            --set grafana.enabled=true \
+            --set prometheus.enabled=true
+
+  deploy-services:
+    name: Deploy Services
+    needs: setup-cluster
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Deploy services
+        run: |
+          kubectl create namespace lotabots
+          kubectl label namespace lotabots istio-injection=enabled
+          kubectl apply -k k8s/overlays/dev
+
+      - name: Wait for services
+        run: |
+          kubectl -n lotabots wait --for=condition=available --timeout=300s deployment/preprocessing-service
+          kubectl -n lotabots wait --for=condition=available --timeout=300s deployment/training-service
+          kubectl -n lotabots wait --for=condition=available --timeout=300s deployment/inference-service
+          kubectl -n lotabots wait --for=condition=available --timeout=300s deployment/attestation-service
+
+  run-tests:
+    name: Run Integration Tests
+    needs: deploy-services
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio httpx pytest-cov
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration --cov=tests/integration --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: integration
+
+  cleanup:
+    name: Cleanup
+    needs: [run-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete kind cluster
+        run: |
+          kind delete cluster --name ${{ env.KIND_CLUSTER_NAME }}
+
+  notify:
+    name: Notify on Failure
+    needs: [setup-cluster, deploy-services, run-tests]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create issue on failure
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Integration Tests Failed',
+              body: 'Integration tests failed. Please check the workflow logs for details.'
+            }) 

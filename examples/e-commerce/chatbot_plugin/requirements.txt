@@ -1,0 +1,13 @@
+transformers>=4.30.0
+torch>=2.0.0
+numpy>=1.24.0
+sentencepiece>=0.1.99  # Required for some tokenizers
+protobuf>=3.20.0  # Required for TensorBoard
+tqdm>=4.65.0  # Progress bars
+requests>=2.31.0  # HTTP requests
+pyyaml>=6.0.1  # Configuration handling
+jsonschema>=4.17.3  # JSON Schema validation
+scikit-learn>=1.2.2  # For cosine similarity in product search
+sentence-transformers>=2.2.2  # For semantic search
+psutil>=5.9.0  # For system resource monitoring
+nvidia-ml-py3>=7.352.0  # For NVIDIA GPU monitoring

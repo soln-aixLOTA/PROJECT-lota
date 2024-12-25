@@ -1,0 +1,10 @@
+# AWS Network Load Balancer configuration
+service:
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+  type: LoadBalancer
+  ports:
+    - name: streaming
+      port: 47998
+      targetPort: 47998
+      protocol: UDP 

@@ -1,0 +1,168 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: attestation-service
+  namespace: lotabots
+  labels:
+    app: attestation-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: attestation-service
+  template:
+    metadata:
+      labels:
+        app: attestation-service
+    spec:
+      containers:
+      - name: attestation-service
+        image: lotabots/attestation-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8003
+          name: http
+        - containerPort: 9090
+          name: metrics
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+        env:
+        - name: RUST_LOG
+          value: info
+        envFrom:
+        - configMapRef:
+            name: lotabots-config
+        - secretRef:
+            name: lotabots-secrets
+        volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+      volumes:
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock
+          type: Socket
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: attestation-service
+  namespace: lotabots
+  labels:
+    app: attestation-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8003
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    app: attestation-service
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: attestation-service-hpa
+  namespace: lotabots
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: attestation-service
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: attestation-service-pdb
+  namespace: lotabots
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: attestation-service
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: attestation-service-network-policy
+  namespace: lotabots
+spec:
+  podSelector:
+    matchLabels:
+      app: attestation-service
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: lotabots
+    ports:
+    - protocol: TCP
+      port: 8003
+    - protocol: TCP
+      port: 9090
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: lotabots
+    ports:
+    - protocol: TCP
+      port: 8000  # Preprocessing Service
+    - protocol: TCP
+      port: 8001  # Training Service
+    - protocol: TCP
+      port: 8002  # Inference Service
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 169.254.0.0/16
+        - 172.16.0.0/12
+    ports:
+    - protocol: TCP
+      port: 443  # For NVIDIA Attestation API 

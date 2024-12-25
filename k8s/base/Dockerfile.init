@@ -1,0 +1,8 @@
+FROM alpine:3.18
+
+RUN apk add --no-cache curl jq
+
+COPY model-download.sh /usr/local/bin/model-download.sh
+RUN chmod +x /usr/local/bin/model-download.sh
+
+ENTRYPOINT ["/usr/local/bin/model-download.sh"] 
