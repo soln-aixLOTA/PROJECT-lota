@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   app:
@@ -11,7 +11,11 @@ services:
       - HOST=0.0.0.0
       - PORT=8080
       - RUST_LOG=debug
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/lotabots_user_management
+      - DB_USER=dislove
+      - DB_PASSWORD=securepassword
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=lotabots
       - JWT_SECRET=development-secret-key
       - JWT_EXPIRATION=3600
       - RATE_LIMIT_BURST=100
@@ -30,9 +34,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=lotabots_user_management
+      - POSTGRES_USER=dislove
+      - POSTGRES_PASSWORD=securepassword
+      - POSTGRES_DB=lotabots
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
@@ -43,9 +47,9 @@ services:
     ports:
       - "5433:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=lotabots_user_management_test
+      - POSTGRES_USER=dislove
+      - POSTGRES_PASSWORD=securepassword
+      - POSTGRES_DB=lotabots_test
     networks:
       - lotabots-network
 
@@ -57,10 +61,10 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
     networks:
       - lotabots-network
 
@@ -84,7 +88,6 @@ volumes:
   prometheus-data:
   grafana-data:
   target:
-
 
 networks:
   lotabots-network:
