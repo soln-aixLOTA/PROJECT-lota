@@ -10,7 +10,7 @@ use std::marker::PhantomData;
 
 #[derive(Clone)]
 pub struct Metrics<S> {
-    pub service: PhantomData<S>,
+    pub service: S,
 }
 
 impl< S, B > Transform< S, ServiceRequest > for Metrics<S>
@@ -26,7 +26,7 @@ where
     type Future = Ready< Result< Self::Transform, Self::InitError > >;
 
     fn new_transform( &self, service: S ) -> Self::Future {
-        ok(Metrics { service: PhantomData })
+        ok(Metrics { service })
     }
 }
 
@@ -38,7 +38,7 @@ where
 {
     type Response = ServiceResponse<B>;
     type Error = Error;
-    type Future = Pin< Box< dyn Future< Output = Result< Self::Response, Self::Error > > > >;
+    type Future = Pin< Box< dyn Future< Output = Result< Self::Response, Self::Error > > > > >;
 
     forward_ready!(service);
 
