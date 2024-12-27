@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-actix-web = { version = "4.9", features = ["rustls"] }
-actix-cors = "0.6"
+actix-web = { version = "4.5", features = ["rustls"] }
+actix-cors = "0.7"
 actix-service = "2.0"
 actix-http = "3.9"
 actix-rt = "2.10"
@@ -42,8 +42,8 @@ jsonschema = "0.17"
 prometheus = { version = "0.13", features = ["process"] }
 lazy_static = "1.4"
 
-config = "0.13"
-dotenv = "0.15"
+config = { version = "0.14", default-features = false, features = ["toml"] }
+dotenvy = "0.15"
 envy = "0.4"
 
 vaultrs = "0.7"
@@ -51,7 +51,7 @@ sys-info = "0.9"
 nvml-wrapper = "0.9"
 
 reqwest = { version = "0.11", features = ["json"] }
-sqlx = { version = "0.7", features = [
+sqlx = { version = "0.8", features = [
     "runtime-tokio",
     "tls-rustls",
     "postgres",
@@ -59,7 +59,7 @@ sqlx = { version = "0.7", features = [
 ] }
 
 [dev-dependencies]
-wiremock = "0.5"
+wiremock = "0.6"
 actix-test = "0.1"
 assert-json-diff = "2.0"
 tokio-test = "0.4"

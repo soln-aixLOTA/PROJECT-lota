@@ -1,3 +1,4 @@
+use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::env;
@@ -28,7 +29,7 @@ mod tests {
     #[tokio::test]
     async fn test_database_connection() {
         dotenv().ok();
-        
+
         match create_pool().await {
             Ok(pool) => {
                 // Try to execute a simple query
@@ -36,8 +37,8 @@ mod tests {
                     Ok(_) => println!("Successfully connected to database!"),
                     Err(e) => panic!("Failed to execute query: {}", e),
                 }
-            },
+            }
             Err(e) => panic!("Failed to create connection pool: {}", e),
         }
     }
-} 
+}
