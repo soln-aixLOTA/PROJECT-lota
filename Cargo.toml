@@ -1,43 +1,65 @@
-[workspace]
-members = ["ai-services/attestation"]
-resolver = "2"
-
 [package]
-name = "lotabots"
+name = "api-gateway"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-actix-web = "4.0"
+actix-web = { version = "4.9", features = ["rustls"] }
+actix-cors = "0.6"
+actix-service = "2.0"
+actix-http = "3.9"
+actix-rt = "2.10"
+actix-utils = "3.0"
+actix-router = "0.5"
+actix-macros = "0.2"
+actix-codec = "0.5"
+
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.0", features = ["full"] }
-reqwest = { version = "0.11", features = ["json"] }
-jsonwebtoken = "8.1"
-chrono = { version = "0.4", features = ["serde"] }
-env_logger = "0.9"
-log = "0.4"
+serde_urlencoded = "0.7"
+serde_qs = "0.8"
+
+tokio = { version = "1.42", features = ["full"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+tokio-stream = "0.1"
+
+futures = "0.3"
 futures-util = "0.3"
-sqlx = { version = "0.6", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono"] }
-uuid = { version = "1.0", features = ["serde", "v4"] }
-validator = { version = "0.16", features = ["derive"] }
+futures-core = "0.3"
+futures-channel = "0.3"
+futures-executor = "0.3"
+
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-actix-service = "2.0"
-actix-http = "3.0"
-actix-rt = "2.7"
-base64 = "0.21"
-dotenv = "0.15"
-governor = "0.6"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-actix-web = "0.7"
+
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.11", features = ["serde", "v4"] }
+dashmap = "5.5"
+lru = "0.12"
+jsonschema = "0.17"
+
 prometheus = { version = "0.13", features = ["process"] }
 lazy_static = "1.4"
-awc = { version = "3.1", features = ["rustls"] }
-derive_more = "0.99"
-futures = "0.3"
+
+config = "0.13"
+dotenv = "0.15"
+envy = "0.4"
+
+vaultrs = "0.7"
+sys-info = "0.9"
+nvml-wrapper = "0.9"
+
+reqwest = { version = "0.11", features = ["json"] }
+sqlx = { version = "0.7", features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "macros",
+] }
 
 [dev-dependencies]
 wiremock = "0.5"
-actix-rt = "2.7"
 actix-test = "0.1"
 assert-json-diff = "2.0"
-serde_json = "1.0"
+tokio-test = "0.4"

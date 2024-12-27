@@ -1,88 +1,76 @@
-use actix_web::{error::ResponseError, HttpResponse};
-use derive_more::Display;
-use serde_json::json;
+use actix_web::{error::ResponseError, http::StatusCode, HttpResponse};
+use serde::{Deserialize, Serialize};
+use std::fmt;
 
-#[derive(Debug, Display)]
-pub enum CustomError {
-    #[display(fmt = "Authentication error: {}", _0)]
-    AuthenticationError(String),
-    
-    #[display(fmt = "Authorization error: {}", _0)]
-    AuthorizationError(String),
-    
-    #[display(fmt = "Database error: {}", _0)]
-    DatabaseError(String),
-    
-    #[display(fmt = "Validation error: {}", _0)]
-    ValidationError(String),
-    
-    #[display(fmt = "Rate limit exceeded")]
-    RateLimitExceeded,
-    
-    #[display(fmt = "Unauthorized")]
-    Unauthorized,
-    
-    #[display(fmt = "Not Found")]
-    NotFound,
-    
-    #[display(fmt = "Internal Server Error")]
-    InternalServerError,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ApiError {
+    pub code: String,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
 }
 
-impl ResponseError for CustomError {
-    fn error_response(&self) -> HttpResponse {
-        match self {
-            CustomError::AuthenticationError(msg) => {
-                HttpResponse::Unauthorized().json(json!({
-                    "error": "Authentication error",
-                    "details": msg
-                }))
-            }
-            CustomError::AuthorizationError(msg) => {
-                HttpResponse::Forbidden().json(json!({
-                    "error": "Authorization error",
-                    "details": format!("Authorization failed: {}", msg)  // Include details for better context
-                }))
-            }
-            CustomError::DatabaseError(msg) => {
-                HttpResponse::InternalServerError().json(json!({
-                    "error": "Database error",
-                    "details": msg
-                }))
-            }
-            CustomError::ValidationError(msg) => {
-                HttpResponse::BadRequest().json(json!({
-                    "error": "Validation error",
-                    "details": msg
-                }))
-            }
-            CustomError::RateLimitExceeded => {
-                HttpResponse::TooManyRequests().json(json!({
-                    "error": "Rate limit exceeded",
-                    "details": "You have exceeded the allowed number of requests."
-                }))
-            }
-            CustomError::Unauthorized => {
-                HttpResponse::Unauthorized().json(json!({
-                    "error": "Unauthorized"
-                }))
-            }
-            CustomError::NotFound => {
-                HttpResponse::NotFound().json(json!({
-                    "error": "Not Found"
-                }))
-            }
-            CustomError::InternalServerError => {
-                HttpResponse::InternalServerError().json(json!({
-                    "error": "Internal Server Error"
-                }))
-            }
+impl ApiError {
+    pub fn new<T: Into<String>, U: Into<String>>(code: T, message: U) -> Self {
+        ApiError {
+            code: code.into(),
+            message: message.into(),
+            details: None,
+        }
+    }
+
+    pub fn with_details<T: Into<String>, U: Into<String>>(
+        code: T,
+        message: U,
+        details: serde_json::Value,
+    ) -> Self {
+        ApiError {
+            code: code.into(),
+            message: message.into(),
+            details: Some(details),
         }
     }
 }
 
-impl From<sqlx::Error> for CustomError {
-    fn from(err: sqlx::Error) -> Self {
-        CustomError::DatabaseError(err.to_string())
+impl fmt::Display for ApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.code, self.message)
     }
 }
+
+impl ResponseError for ApiError {
+    fn error_response(&self) -> HttpResponse {
+        let mut response = HttpResponse::build(self.status_code());
+
+        if let Some(details) = &self.details {
+            response.json(serde_json::json!({
+                "error": {
+                    "code": self.code,
+                    "message": self.message,
+                    "details": details
+                }
+            }))
+        } else {
+            response.json(serde_json::json!({
+                "error": {
+                    "code": self.code,
+                    "message": self.message
+                }
+            }))
+        }
+    }
+
+    fn status_code(&self) -> StatusCode {
+        match self.code.as_str() {
+            "VALIDATION_ERROR" => StatusCode::BAD_REQUEST,
+            "RATE_LIMIT_EXCEEDED" => StatusCode::TOO_MANY_REQUESTS,
+            "UNAUTHORIZED" => StatusCode::UNAUTHORIZED,
+            "FORBIDDEN" => StatusCode::FORBIDDEN,
+            "NOT_FOUND" => StatusCode::NOT_FOUND,
+            "INTERNAL_ERROR" => StatusCode::INTERNAL_SERVER_ERROR,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+impl std::error::Error for ApiError {}
