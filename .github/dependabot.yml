@@ -1,0 +1,51 @@
+# Dependabot configuration for automated dependency updates
+# Documentation: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Update for JavaScript packages using npm
+  - package-ecosystem: "npm" # Specify the package manager (e.g., npm, pip)
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly" # Frequency of update checks
+    open-pull-requests-limit: 5 # Maximum number of open PRs at a time
+    commit-message:
+      prefix: "deps" # Prefix for commit messages
+    # Automated security updates
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    # Ignore specific dependencies if needed
+    # ignore:
+    #   - dependency-name: "react"
+    #     versions:
+    #       - "16.x.x"
+
+  # Update for Python packages using pip
+  - package-ecosystem: "pip" 
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+
+  # Update for Ruby gems
+  - package-ecosystem: "bundler"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+
+# Optional: Configure automated security updates separately
+security-updates:
+  # Enable automatic security updates
+  enabled: true
