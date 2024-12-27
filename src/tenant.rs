@@ -3,7 +3,6 @@ use actix_web::{
     Error, HttpMessage,
 };
 use futures_util::future::{ready, LocalBoxFuture, Ready};
-use std::task::{Context, Poll};
 
 pub struct TenantMiddleware;
 

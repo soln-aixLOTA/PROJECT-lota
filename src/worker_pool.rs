@@ -1,9 +1,4 @@
-use crate::config::AppConfig;
-use crate::error::ApiError;
 use dashmap::DashMap;
-use lazy_static::lazy_static;
-use prometheus::{register_histogram_vec, register_int_counter_vec, HistogramVec, IntCounterVec};
-use serde::{Deserialize, Serialize};
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -12,191 +7,212 @@ use tokio::{
     sync::{mpsc, Semaphore},
     time::sleep,
 };
-use tracing::error;
+use tracing::{error, info, warn};
+use uuid::Uuid;
 
-lazy_static! {
-    static ref WORKER_METRICS: IntCounterVec = register_int_counter_vec!(
-        "api_gateway_worker_metrics",
-        "Worker pool metrics",
-        &["worker_id", "metric_type"]
-    )
-    .unwrap();
-    static ref WORKER_LATENCY: HistogramVec = register_histogram_vec!(
-        "api_gateway_worker_latency_seconds",
-        "Worker processing latency in seconds",
-        &["worker_id"],
-        vec![0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0]
-    )
-    .unwrap();
-}
+use crate::{config::AppConfig, error::ApiError};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// A request that can be processed by a worker
+#[derive(Debug, Clone)]
 pub struct Request {
+    /// Unique identifier for the request
     pub id: String,
-    pub payload: serde_json::Value,
+    /// The payload to be processed
+    pub payload: Vec<u8>,
+    /// Request metadata
     pub metadata: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// A response from a worker after processing a request
+#[derive(Debug, Clone)]
 pub struct Response {
+    /// Unique identifier matching the request
     pub id: String,
-    pub result: serde_json::Value,
+    /// The processed result
+    pub result: Vec<u8>,
+    /// Response metadata
     pub metadata: Option<serde_json::Value>,
 }
 
+/// Manages a pool of workers for processing requests
+/// Automatically scales the number of workers based on load
 #[derive(Clone)]
 pub struct AdaptiveWorkerPool {
+    /// Application configuration
     config: Arc<AppConfig>,
+    /// Active workers in the pool
     workers: Arc<DashMap<String, Worker>>,
+    /// Controls the maximum number of concurrent workers
     semaphore: Arc<Semaphore>,
 }
 
+/// A worker that can process requests
 #[derive(Clone)]
 struct Worker {
+    /// Unique identifier for the worker
     id: String,
+    /// Channel for sending requests to the worker
     sender: mpsc::Sender<Request>,
+    /// Last time the worker was used
     last_used: Instant,
-    metrics: WorkerMetrics,
 }
 
+/// Metrics for monitoring worker performance
 #[derive(Debug, Clone)]
 struct WorkerMetrics {
+    /// Number of requests processed
     requests_processed: u64,
+    /// Number of errors encountered
     errors: u64,
+    /// Average processing time per request
     avg_processing_time: Duration,
 }
 
 impl AdaptiveWorkerPool {
+    /// Creates a new worker pool
+    ///
+    /// # Arguments
+    /// * `config` - Application configuration
     pub async fn new(config: AppConfig) -> Self {
-        let pool = AdaptiveWorkerPool {
+        info!("Initializing adaptive worker pool");
+        AdaptiveWorkerPool {
             config: Arc::new(config),
             workers: Arc::new(DashMap::new()),
-            semaphore: Arc::new(Semaphore::new(10)), // Default max concurrent requests
-        };
-
-        // Start metrics collection
-        pool.clone().start_metrics_collection();
-
-        pool
-    }
-
-    pub async fn process_request(&self, request: Request) -> Result<Response, ApiError> {
-        let permit = self
-            .semaphore
-            .acquire()
-            .await
-            .map_err(|_| ApiError::new("INTERNAL_ERROR", "Failed to acquire semaphore"))?;
-
-        let worker = self.get_available_worker().await?;
-        let response = worker.process_request(request).await;
-
-        drop(permit);
-        response
-    }
-
-    async fn get_available_worker(&self) -> Result<Arc<Worker>, ApiError> {
-        // Simple round-robin for now
-        let workers = self.workers.iter();
-        if let Some(worker) = workers.min_by_key(|w| w.value().last_used) {
-            Ok(Arc::new(worker.value().clone()))
-        } else {
-            // Create new worker if none available
-            self.create_worker().await
+            semaphore: Arc::new(Semaphore::new(10)), // Default max workers
         }
     }
 
-    async fn create_worker(&self) -> Result<Arc<Worker>, ApiError> {
-        let worker_id = uuid::Uuid::new_v4().to_string();
-        let (tx, mut rx) = mpsc::channel(100);
+    /// Processes a request using an available worker
+    ///
+    /// # Arguments
+    /// * `request` - The request to process
+    ///
+    /// # Returns
+    /// * `Result<Response, ApiError>` - The processed response or an error
+    pub async fn process_request(&self, request: Request) -> Result<Response, ApiError> {
+        info!("Processing request: {}", request.id);
 
+        // Get an available worker
+        let worker = self.get_available_worker().await?;
+
+        // Send request to worker
+        if let Err(e) = worker.sender.send(request.clone()).await {
+            error!("Failed to send request to worker: {}", e);
+            return Err(ApiError::internal_error());
+        }
+
+        // TODO: Implement response handling
+        Ok(Response {
+            id: request.id,
+            result: vec![],
+            metadata: None,
+        })
+    }
+
+    /// Gets an available worker or creates a new one if needed
+    async fn get_available_worker(&self) -> Result<Arc<Worker>, ApiError> {
+        // Try to find an available worker
+        for worker in self.workers.iter() {
+            if worker.last_used.elapsed() < Duration::from_secs(60) {
+                return Ok(Arc::new(worker.clone()));
+            }
+        }
+
+        // Create a new worker if under limit
+        if let Ok(_permit) = self.semaphore.try_acquire() {
+            return self.create_worker().await;
+        }
+
+        warn!("Worker pool at capacity");
+        Err(ApiError::service_unavailable())
+    }
+
+    /// Creates a new worker
+    async fn create_worker(&self) -> Result<Arc<Worker>, ApiError> {
+        let worker_id = Uuid::new_v4().to_string();
+        info!("Creating new worker: {}", worker_id);
+
+        let (tx, mut rx) = mpsc::channel(100);
         let worker = Worker {
             id: worker_id.clone(),
             sender: tx,
             last_used: Instant::now(),
-            metrics: WorkerMetrics {
-                requests_processed: 0,
-                errors: 0,
-                avg_processing_time: Duration::from_secs(0),
-            },
         };
 
-        // Start worker processing loop
+        // Spawn worker task
         let worker_clone = worker.clone();
-        let worker_id_clone = worker_id.clone();
+        let worker_id_for_task = worker_id.clone(); // Clone for the async block
         tokio::spawn(async move {
             while let Some(request) = rx.recv().await {
-                let start = Instant::now();
-                match worker_clone.handle_request(request).await {
-                    Ok(_) => {
-                        WORKER_METRICS
-                            .with_label_values(&[&worker_id_clone, "success"])
-                            .inc();
-                    }
-                    Err(e) => {
-                        error!("Worker error: {}", e);
-                        WORKER_METRICS
-                            .with_label_values(&[&worker_id_clone, "error"])
-                            .inc();
-                    }
+                if let Err(e) = worker_clone.handle_request(request).await {
+                    error!(
+                        "Worker {} failed to process request: {}",
+                        worker_id_for_task, e
+                    );
                 }
-                WORKER_LATENCY
-                    .with_label_values(&[&worker_id_clone])
-                    .observe(start.elapsed().as_secs_f64());
             }
         });
 
-        self.workers.insert(worker_id, worker.clone());
-        Ok(Arc::new(worker))
-    }
+        let worker = Arc::new(worker);
+        self.workers.insert(worker_id.clone(), (*worker).clone());
 
-    fn start_metrics_collection(self) {
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(60));
-            loop {
-                interval.tick().await;
-                self.collect_metrics().await;
-            }
-        });
-    }
-
-    async fn collect_metrics(&self) {
-        for worker in self.workers.iter() {
-            WORKER_METRICS
-                .with_label_values(&[&worker.id, "total_requests"])
-                .inc_by(worker.metrics.requests_processed);
-            WORKER_METRICS
-                .with_label_values(&[&worker.id, "errors"])
-                .inc_by(worker.metrics.errors);
-        }
+        Ok(worker)
     }
 }
 
 impl Worker {
+    /// Processes a request
     async fn process_request(&self, request: Request) -> Result<Response, ApiError> {
-        let start = Instant::now();
+        info!("Worker {} processing request {}", self.id, request.id);
 
-        // Send request to worker channel
-        self.sender
-            .send(request.clone())
-            .await
-            .map_err(|_| ApiError::new("INTERNAL_ERROR", "Failed to send request to worker"))?;
+        // Simulate processing time
+        sleep(Duration::from_millis(100)).await;
 
-        // For now, just echo back the request as response
-        let response = Response {
+        Ok(Response {
             id: request.id,
             result: request.payload,
-            metadata: Some(serde_json::json!({
-                "worker_id": self.id,
-                "processing_time": start.elapsed().as_secs_f64()
-            })),
-        };
-
-        Ok(response)
+            metadata: request.metadata,
+        })
     }
 
-    async fn handle_request(&self, _request: Request) -> Result<(), ApiError> {
-        // Simulate some work
-        sleep(Duration::from_millis(100)).await;
-        Ok(())
+    /// Handles an incoming request
+    async fn handle_request(&self, request: Request) -> Result<(), ApiError> {
+        match self.process_request(request).await {
+            Ok(_response) => {
+                info!("Worker {} successfully processed request", self.id);
+                Ok(())
+            }
+            Err(e) => {
+                error!("Worker {} failed to process request: {}", self.id, e);
+                Err(e)
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_worker_pool_creation() {
+        let config = AppConfig::default();
+        let pool = AdaptiveWorkerPool::new(config).await;
+        assert_eq!(pool.workers.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_request_processing() {
+        let config = AppConfig::default();
+        let pool = AdaptiveWorkerPool::new(config).await;
+
+        let request = Request {
+            id: Uuid::new_v4().to_string(),
+            payload: vec![1, 2, 3],
+            metadata: None,
+        };
+
+        let response = pool.process_request(request.clone()).await;
+        assert!(response.is_ok());
     }
 }

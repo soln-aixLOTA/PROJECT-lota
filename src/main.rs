@@ -40,8 +40,12 @@ async fn main() -> std::io::Result<()> {
         .with_env_filter("info")
         .init();
 
-    // Load configuration
+    // Load configuration first
     let config = AppConfig::from_env().expect("Failed to load configuration");
+
+    // Initialize logging with config
+    logging::init_logging(&config.logging);
+
     let host = config.host.clone();
     let port = config.port;
 

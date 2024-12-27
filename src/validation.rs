@@ -1,9 +1,8 @@
 use actix_web::{
-    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
+    dev::{Service, ServiceRequest, ServiceResponse, Transform},
     Error,
 };
 use futures_util::future::{ready, LocalBoxFuture, Ready};
-use std::task::{Context, Poll};
 
 pub struct ValidationMiddleware;
 

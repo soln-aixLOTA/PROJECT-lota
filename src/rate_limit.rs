@@ -8,7 +8,6 @@ use lazy_static::lazy_static;
 use prometheus::{register_int_counter_vec, IntCounterVec};
 use std::{
     sync::Arc,
-    task::{Context, Poll},
     time::{Duration, Instant},
 };
 use tracing::warn;

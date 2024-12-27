@@ -1,25 +1,6 @@
-use serde::{Deserialize, Serialize};
+use crate::config::LoggingConfig;
 use tracing::{info, Level};
-use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LoggingConfig {
-    pub level: String,
-    pub format: String,
-    pub file_logging: bool,
-    pub file_path: Option<String>,
-}
-
-impl Default for LoggingConfig {
-    fn default() -> Self {
-        LoggingConfig {
-            level: "info".to_string(),
-            format: "json".to_string(),
-            file_logging: false,
-            file_path: None,
-        }
-    }
-}
+use tracing_subscriber::fmt;
 
 pub fn init_logging(config: &LoggingConfig) {
     let level = match config.level.to_lowercase().as_str() {
@@ -31,23 +12,44 @@ pub fn init_logging(config: &LoggingConfig) {
         _ => Level::INFO,
     };
 
-    let subscriber = FmtSubscriber::builder()
+    let format = config.format.to_lowercase();
+    let is_json = format == "json";
+
+    let builder = fmt::Subscriber::builder()
         .with_max_level(level)
-        .with_span_events(FmtSpan::CLOSE)
-        .with_target(false)
-        .with_thread_ids(true)
-        .with_thread_names(true)
         .with_file(true)
         .with_line_number(true)
-        .with_ansi(true)
-        .with_env_filter("info")
-        .compact();
+        .with_thread_ids(true)
+        .with_target(false)
+        .with_thread_names(true)
+        .with_ansi(true);
 
-    if config.format == "json" {
-        subscriber.json().init();
+    let subscriber = if is_json {
+        builder.json().try_init()
     } else {
-        subscriber.init();
-    }
+        builder.try_init()
+    };
 
-    info!("Logging initialized with level: {}", config.level);
+    match subscriber {
+        Ok(_) => info!(
+            "Logging initialized with level: {}, format: {}",
+            config.level, config.format
+        ),
+        Err(e) => eprintln!("Failed to initialize logging: {}", e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_init_logging() {
+        let config = LoggingConfig {
+            level: "info".to_string(),
+            format: "text".to_string(),
+            output: "stdout".to_string(),
+        };
+        init_logging(&config);
+    }
 }
