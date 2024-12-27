@@ -76,319 +76,404 @@ services:
     build: ./app
     ports:
       - "3000:3000"
+```
 
-	1.	Start the services:
+1. Start the services:
 
+```bash
 docker-compose up
+```
 
+2. Access the application:
+   - The API Gateway is available on port 8080, and the frontend on port 3000 by default.
 
-	2.	Access the application:
-Once running, the API Gateway is available on port 8080, and the frontend on port 3000 by default.
+### Using Rust’s Cargo
 
-Using Rust’s Cargo
-	1.	Clone the repository:
+1. Clone the repository:
 
+```bash
 git clone <repository-url>
+```
 
+2. Navigate to the project directory:
 
-	2.	Navigate to the project directory:
-
+```bash
 cd PROJECT-lota
+```
 
+3. Build and run the project:
 
-	3.	Build and run the project:
-
+```bash
 cargo build
 cargo run
+```
 
+4. Access the application:
+   - By default, the service listens on port 8080 (configurable in your code or Cargo.toml).
 
-	4.	Access the application:
-By default, the service listens on port 8080 (configurable in your code or Cargo.toml).
+---
 
-Prerequisites and Compatibility
-	•	Rust: Version 1.55 or higher
-	•	Docker: Version 20.10 or higher
-	•	Kubernetes: Version 1.21 or higher
-	•	Platforms: Linux, macOS, Windows
+## Prerequisites and Compatibility
 
-	Note: Ensure you have the correct permissions on your system to run Docker and Kubernetes.
+- **Rust**: Version 1.55 or higher
+- **Docker**: Version 20.10 or higher
+- **Kubernetes**: Version 1.21 or higher
+- **Platforms**: Linux, macOS, Windows
 
-DevOps Workflows
+*Note: Ensure you have the correct permissions on your system to run Docker and Kubernetes.*
 
-Continuous Integration (ci.yml)
-	•	Automated testing with PostgreSQL integration
-Validate that your application functions as expected in conjunction with a PostgreSQL database.
-	•	Code formatting checks (rustfmt)
-Maintain a consistent code style across the project.
-	•	Linting (clippy)
-Catch common Rust pitfalls and enforce coding standards.
-	•	Security auditing (cargo audit)
-Check your dependencies and code for known vulnerabilities.
-	•	Dependency review
-Keep track of outdated libraries and make sure they’re up to date.
+---
 
-Continuous Deployment (cd.yml)
-	•	Docker image building and pushing
-Ensure a reproducible build pipeline for your Docker images.
-	•	Automated deployment on tag releases
-Trigger deployments whenever a new tag is pushed to the repository.
-	•	Container registry integration
-Publish images to Docker Hub, GitHub Container Registry, or another registry.
-	•	Build caching for faster builds
-Speed up build times by caching intermediate stages.
+## DevOps Workflows
 
-AIOps Automation (aiops.yml)
-	•	Service health monitoring
-Use built-in or custom metrics to continuously track service availability.
-	•	Resource usage tracking
-Monitor CPU, memory, and network usage to optimize performance.
-	•	Log analysis with anomaly detection
-Spot unusual behaviors or errors in logs.
-	•	Predictive scaling
-Scale the service up or down based on forecasted traffic.
-	•	Automated alerting via Slack
-Keep your team informed of any critical events or issues.
+### Continuous Integration (ci.yml)
+- **Automated testing with PostgreSQL integration**
+  - Validate that your application functions as expected in conjunction with a PostgreSQL database.
+- **Code formatting checks (rustfmt)**
+  - Maintain a consistent code style across the project.
+- **Linting (clippy)**
+  - Catch common Rust pitfalls and enforce coding standards.
+- **Security auditing (cargo audit)**
+  - Check your dependencies and code for known vulnerabilities.
+- **Dependency review**
+  - Keep track of outdated libraries and make sure they’re up to date.
 
-Setup
-	1.	Configure GitHub Secrets
-You must define the following secrets for your GitHub Actions:
+### Continuous Deployment (cd.yml)
+- **Docker image building and pushing**
+  - Ensure a reproducible build pipeline for your Docker images.
+- **Automated deployment on tag releases**
+  - Trigger deployments whenever a new tag is pushed to the repository.
+- **Container registry integration**
+  - Publish images to Docker Hub, GitHub Container Registry, or another registry.
+- **Build caching for faster builds**
+  - Speed up build times by caching intermediate stages.
 
+### AIOps Automation (aiops.yml)
+- **Service health monitoring**
+  - Use built-in or custom metrics to continuously track service availability.
+- **Resource usage tracking**
+  - Monitor CPU, memory, and network usage to optimize performance.
+- **Log analysis with anomaly detection**
+  - Spot unusual behaviors or errors in logs.
+- **Predictive scaling**
+  - Scale the service up or down based on forecasted traffic.
+- **Automated alerting via Slack**
+  - Keep your team informed of any critical events or issues.
+
+---
+
+## Setup
+
+1. **Configure GitHub Secrets**
+   - You must define the following secrets for your GitHub Actions:
+
+```bash
 SLACK_BOT_TOKEN - For alerts
 DOCKER_USERNAME - For container registry
 DOCKER_PASSWORD - For container registry
+```
 
+2. **Install Python dependencies**
+   - Some scripts may require Python for tasks such as anomaly detection or predictive analytics:
 
-	2.	Install Python dependencies
-Some scripts may require Python for tasks such as anomaly detection or predictive analytics:
-
+```bash
 cd scripts
 pip install -r requirements.txt
+```
 
+3. **Configure monitoring**
+   - Update API endpoints in `aiops.yml`.
+   - Configure the Slack channel in `aiops.yml`.
+   - Adjust scaling thresholds in `predict_scaling.py` based on your expected traffic patterns.
 
-	3.	Configure monitoring
-	•	Update API endpoints in aiops.yml.
-	•	Configure the Slack channel in aiops.yml.
-	•	Adjust scaling thresholds in predict_scaling.py based on your expected traffic patterns.
+---
 
-Environment Variables and Secrets
-	•	VAULT_ADDR
-Vault server address. Default: http://vault.lotabots.svc:8200
-	•	VAULT_ROLE
-Kubernetes authentication role. Default: api-gateway
-	•	VAULT_NAMESPACE
-Vault namespace for secrets. Default: lotabots
+## Environment Variables and Secrets
 
-	These can be customized or overridden based on your environment.
+- `VAULT_ADDR`
+  - Vault server address. Default: `http://vault.lotabots.svc:8200`
+- `VAULT_ROLE`
+  - Kubernetes authentication role. Default: `api-gateway`
+- `VAULT_NAMESPACE`
+  - Vault namespace for secrets. Default: `lotabots`
 
-Development
-	1.	Run tests:
+*These can be customized or overridden based on your environment.*
 
+---
+
+## Development
+
+1. **Run tests:**
+
+```bash
 cargo test
+```
 
+2. **Check formatting:**
 
-	2.	Check formatting:
-
+```bash
 cargo fmt --all -- --check
+```
 
+3. **Run linter:**
 
-	3.	Run linter:
-
+```bash
 cargo clippy -- -D warnings
+```
 
+4. **Security audit:**
 
-	4.	Security audit:
-
+```bash
 cargo audit
+```
 
-Deployment
-	1.	Create a new release:
+---
 
+## Deployment
+
+1. **Create a new release:**
+
+```bash
 git tag v1.0.0
 git push origin v1.0.0
+```
 
+2. **Monitor deployment:**
+   - Check GitHub Actions for CI/CD status.
+   - Verify that the container images are pushed to the registry.
+   - Monitor service health once deployed to Kubernetes or another environment.
 
-	2.	Monitor deployment:
-	•	Check GitHub Actions for CI/CD status.
-	•	Verify that the container images are pushed to the registry.
-	•	Monitor service health once deployed to Kubernetes or another environment.
+---
 
-AIOps Features
+## AIOps Features
 
-Log Analysis
-	•	Anomaly detection in log patterns
-	•	Error clustering and categorization
-	•	Automated reporting
+### Log Analysis
 
-Predictive Scaling
-	•	Traffic pattern analysis
-	•	Resource usage prediction
-	•	Automated HPA configuration
+- Anomaly detection in log patterns
+- Error clustering and categorization
+- Automated reporting
 
-Monitoring
-	•	Health checks
-	•	Resource usage tracking
-	•	Performance metrics
-	•	Automated alerting
+### Predictive Scaling
 
-Troubleshooting Tips / FAQ
-	•	Authentication Failures
-	•	Verify the Kubernetes service account token is mounted correctly.
-	•	Check the Vault role binding and policy configurations.
-	•	Confirm that network policies permit communication with Vault.
-	•	Secret Access Denied
-	•	Ensure the Vault policy references the correct secret paths.
-	•	Verify that your service account is authorized for the specified role.
-	•	Check network connectivity and DNS resolution for Vault.
-	•	Lease Renewal Failures
-	•	Check Vault server connectivity and logs for errors.
-	•	Verify the lease TTL is within allowed limits.
-	•	Confirm the Vault policy allows lease renewal.
+- Traffic pattern analysis
+- Resource usage prediction
+- Automated HPA configuration
 
-Additional Resources
-	•	Slack API Integration
-	•	PostgreSQL Documentation
-	•	Kubernetes Documentation
+### Monitoring
 
-Security Hardening
-	•	Regularly update and re-scan dependencies
-Use cargo audit and other security tools to stay on top of vulnerabilities.
-	•	Follow best practices for Rust security audits
-Always ensure your Cargo.lock is committed and regularly updated.
-	•	Implement Rate Limiting & Validation
-Where possible, add request validation, rate limiting, and thorough input checks.
+- Health checks
+- Resource usage tracking
+- Performance metrics
+- Automated alerting
 
-Contributions and Code of Conduct
-	1.	Fork the repository.
-	2.	Create a feature branch.
-	3.	Submit a pull request.
-	4.	Refer to the CONTRIBUTING.md and CODE_OF_CONDUCT.md for more details.
+---
 
-License
+## Troubleshooting Tips / FAQ
+
+- **Authentication Failures**
+  - Verify the Kubernetes service account token is mounted correctly.
+  - Check the Vault role binding and policy configurations.
+  - Confirm that network policies permit communication with Vault.
+- **Secret Access Denied**
+  - Ensure the Vault policy references the correct secret paths.
+  - Verify that your service account is authorized for the specified role.
+  - Check network connectivity and DNS resolution for Vault.
+- **Lease Renewal Failures**
+  - Check Vault server connectivity and logs for errors.
+  - Verify the lease TTL is within allowed limits.
+  - Confirm the Vault policy allows lease renewal.
+
+---
+
+## Additional Resources
+
+- [Slack API Integration](https://api.slack.com/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)
+
+---
+
+## Security Hardening
+
+- **Regularly update and re-scan dependencies**
+  - Use cargo audit and other security tools to stay on top of vulnerabilities.
+- **Follow best practices for Rust security audits**
+  - Always ensure your Cargo.lock is committed and regularly updated.
+- **Implement Rate Limiting & Validation**
+  - Where possible, add request validation, rate limiting, and thorough input checks.
+
+---
+
+## Contributions and Code of Conduct
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Submit a pull request.
+4. Refer to the [CONTRIBUTING.md](https://github.com/soln-aixLOTA/PROJECT-lota/blob/main/CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](https://github.com/soln-aixLOTA/PROJECT-lota/blob/main/CODE_OF_CONDUCT.md) for more details.
+
+---
+
+## License
 
 This project is proprietary and confidential.
 
-Contact
+---
+
+## Contact
 
 For any questions, concerns, or support requests, please contact the development team.
 
-Documentation
-	•	API Documentation
-	•	Security Guidelines
-	•	AGI Levels
-	•	Compliance
-	•	Performance Optimization
-	•	Architecture Overview
-	•	Error Handling Strategy
+---
 
-Inspection Report
+## Documentation
 
-Recent Inspection Findings
+- [API Documentation](https://github.com/soln-aixLOTA/PROJECT-lota/blob/main/docs/api.md)
+- [Security Guidelines](https://github.com/soln-aixLOTA/PROJECT-lota/blob/main/docs/security.md)
+- [AGI Levels](https://github.com/soln-aixLOTA/PROJECT-lota/blob/main/docs/agi-levels.md)
+- [Compliance](https://github.com/soln-aixLOTA/PROJECT-lota/blob/main/docs/compliance.md)
+- [Performance Optimization](https://github.com/soln-aixLOTA/PROJECT-lota/blob/main/docs/performance.md)
+- [Architecture Overview](https://github.com/soln-aixLOTA/PROJECT-lota/blob/main/docs/architecture.md)
+- [Error Handling Strategy](https://github.com/soln-aixLOTA/PROJECT-lota/blob/main/docs/error-handling.md)
 
-Monitoring
-	•	Comprehensive metrics added for cache performance and resource utilization.
+---
 
-Dependencies
-	•	Updated all dependencies to their latest stable versions.
-	•	Added missing dependencies for monitoring, testing, and development.
-	•	Categorized dependencies for better maintainability.
+## Inspection Report
 
-Remaining Areas for Improvement
+### Recent Inspection Findings
 
-High Priority
-	1.	Database Optimization
-	•	Implement connection pooling.
-	•	Optimize queries and use appropriate indexing.
-	2.	Security Enhancements
-	•	Implement rate limiting per endpoint.
-	•	Add request validation middleware.
-	•	Improve authentication token management.
-	3.	Monitoring and Observability
-	•	Implement centralized logging.
-	•	Add distributed tracing.
-	•	Enhance business metrics dashboards.
+#### Monitoring
+- Added comprehensive metrics for cache performance and resource utilization.
 
-Medium Priority
-	1.	Performance Optimization
-	•	Implement request batching.
-	•	Add response compression.
-	•	Further optimize database queries.
-	2.	Developer Experience
-	•	Improve API documentation.
-	•	Add setup scripts for local development.
-	•	Enhance the testing framework.
-	3.	Infrastructure
-	•	Implement blue-green deployment strategies.
-	•	Add more granular automated scaling policies.
-	•	Improve backup and recovery procedures.
+#### Dependencies
+- Updated all dependencies to their latest stable versions.
+- Added missing dependencies for monitoring, testing, and development.
+- Properly categorized dependencies for better maintenance.
 
-Low Priority
-	1.	Code Quality
-	•	Add more comprehensive unit and integration tests.
-	•	Improve code documentation and examples.
-	2.	User Experience
-	•	Refine error messages.
-	•	Provide more actionable validation feedback.
-	•	Standardize API response formats.
+### Remaining Areas for Improvement
 
-Technical Debt
+#### High Priority
+1. **Database Optimization**
+   - Implement connection pooling.
+   - Add query optimization.
+   - Implement proper indexing strategy.
 
-Identified Issues
-	1.	API Gateway
-	•	Consolidate error handling paths.
-	•	Improve worker pool efficiency.
-	•	Add stricter configuration validation.
-	2.	Inference Service
-	•	Enhance model loading efficiency.
-	•	Improve error handling for GPU operations.
-	•	Refine cache invalidation strategies.
-	3.	Authentication Service
-	•	Optimize token validation.
-	•	Enforce more granular permission checks.
-	•	Improve session management logic.
+2. **Security Enhancements**
+   - Implement rate limiting per endpoint.
+   - Add request validation middleware.
+   - Enhance authentication token management.
 
-Recommendations
+3. **Monitoring and Observability**
+   - Set up centralized logging.
+   - Implement distributed tracing.
+   - Add business metrics dashboards.
 
-Short Term
-	1.	Implement all high-priority security improvements.
-	2.	Deploy monitoring enhancements.
-	3.	Improve error handling in critical paths.
+#### Medium Priority
+1. **Performance Optimization**
+   - Implement request batching for common operations.
+   - Add response compression.
+   - Optimize database queries.
 
-Medium Term
-	1.	Complete database optimization strategies.
-	2.	Add distributed tracing for performance insights.
-	3.	Enhance the developer documentation.
+2. **Developer Experience**
+   - Improve API documentation.
+   - Add development environment setup scripts.
+   - Enhance the testing framework.
 
-Long Term
-	1.	Consider microservices optimizations and consolidation.
-	2.	Explore multi-region or multi-cloud deployment.
-	3.	Expand automation with advanced scaling and auto-remediation.
+3. **Infrastructure**
+   - Implement blue-green deployment.
+   - Add automated scaling policies.
+   - Improve backup and recovery procedures.
 
-Monitoring and Metrics
+#### Low Priority
+1. **Code Quality**
+   - Add more comprehensive unit tests.
+   - Implement integration tests.
+   - Improve code documentation.
 
-New Metrics Added
-	1.	API Gateway
-	•	Active requests count
-	•	Request duration histogram
-	•	Worker error counts
-	•	System load metrics
-	•	GPU utilization metrics (if applicable)
-	2.	Inference Service
-	•	Cache hit/miss ratios
-	•	Memory usage metrics
-	•	GPU memory utilization
-	•	Model inference times
-	•	Request queue lengths
+2. **User Experience**
+   - Add better error messages.
+   - Implement request validation feedback.
+   - Improve API response formats.
 
-Recommended Additional Metrics
-	1.	Business Metrics
-	•	User engagement and usage rates
-	•	Error rates by endpoint
-	•	Response times by service
-	2.	Resource Metrics
-	•	Database connection pool usage
-	•	Network bandwidth utilization
-	•	Disk I/O patterns
-	•	Potential memory leak detection
+### Technical Debt
 
+#### Identified Issues
+1. **API Gateway**
+   - Some error handling paths need consolidation.
+   - Worker pool implementation could be more efficient.
+   - Configuration management needs better validation.
 
+2. **Inference Service**
+   - Model loading could be more efficient.
+   - Need better error handling for GPU operations.
+   - Cache invalidation strategy needs refinement.
 
+3. **Authentication Service**
+   - Token validation needs optimization.
+   - Permission checking could be more granular.
+   - Session management needs improvement.
+
+### Recommendations
+
+#### Short Term
+1. Implement the high-priority improvements.
+2. Address critical security concerns.
+3. Optimize resource utilization.
+
+#### Medium Term
+1. Refactor for better code organization.
+2. Improve test coverage.
+3. Enhance monitoring and alerting.
+
+#### Long Term
+1. Consider microservices optimization.
+2. Plan for multi-region deployment.
+3. Implement advanced scaling strategies.
+
+### Monitoring and Metrics
+
+#### New Metrics Added
+1. **API Gateway**
+   - Active requests count.
+   - Request duration histogram.
+   - Worker error counts.
+   - System load metrics.
+   - GPU utilization metrics (if applicable).
+
+2. **Inference Service**
+   - Cache hit/miss ratios.
+   - Memory usage metrics.
+   - GPU memory utilization.
+   - Model inference times.
+   - Request queue lengths.
+
+#### Recommended Additional Metrics
+1. **Business Metrics**
+   - User engagement rates.
+   - API usage patterns.
+   - Error rates by endpoint.
+   - Response times by service.
+
+2. **Resource Metrics**
+   - Database connection pool status.
+   - Network bandwidth utilization.
+   - Storage usage patterns.
+   - Memory leak detection.
+
+### Next Steps
+
+#### Immediate Actions
+1. Implement high-priority security improvements.
+2. Deploy monitoring enhancements.
+3. Roll out the improved error handling.
+
+#### Short-term Goals (1-2 months)
+1. Complete database optimization.
+2. Implement distributed tracing.
+3. Enhance developer documentation.
+
+#### Long-term Goals (3-6 months)
+1. Implement multi-region support.
+2. Optimize for scale.
+3. Enhance automation.
+
+For more details, refer to the [Inspection Report](https://github.com/soln-aixLOTA/PROJECT-lota/blob/main/docs/inspection-report.md).
