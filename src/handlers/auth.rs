@@ -1,42 +1,68 @@
-use actix_web::{web, HttpResponse, Responder, Error, HttpRequest};
-use actix_web::web::{Data, Json};
-use sqlx::PgPool;
+use crate::state::AppState;
+use crate::{
+    middleware::auth::Claims,
+    models::user::{CreateUserRequest, LoginRequest},
+    services::auth::AuthService,
+};
+use actix_web::error::ErrorInternalServerError;
+use actix_web::web::{Data, Json, Path};
+use actix_web::{get, post, web, HttpResponse, Result};
+use serde_json::json;
+use tracing::{debug, error, info};
 use uuid::Uuid;
-use chrono::Utc;
-use crate::models::user::{User, CreateUser, DbError};
 
+#[post("/register")]
 pub async fn register(
-    db_pool: Data<PgPool>,
-    Json(payload): Json<CreateUser>,
-) -> Result<impl Responder, actix_web::Error> {
-    let user_data = User {
-        id: Uuid::new_v4(),
-        username: payload.username,
-        email: payload.email,
-        password_hash: payload.password,
-        created_at: Some(Utc::now()),
-        updated_at: Some(Utc::now()),
-    };
-
-    // ... rest of the code (insert user into the database, handle errors using DbError) ...
-    match sqlx::query("INSERT INTO users (id, username, email, password_hash, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)")
-        .bind(&user_data.id)
-        .bind(&user_data.username)
-        .bind(&user_data.email)
-        .bind(&user_data.password_hash)
-        .bind(&user_data.created_at)
-        .bind(&user_data.updated_at)
-        .execute(db_pool.get_ref())
-        .await
-    {
-        Ok(_) => Ok(HttpResponse::Created().json(user_data)),
+    service: Data<AuthService>,
+    request: Json<CreateUserRequest>,
+) -> HttpResponse {
+    match service.register(request.0).await {
+        Ok(user) => {
+            info!("Successfully registered new user");
+            HttpResponse::Created().json(user)
+        }
         Err(e) => {
-            eprintln!("Failed to create user: {:?}", e); // Log the error
-            match e {
-                DbError::UniqueViolation(msg) => Err(HttpResponse::Conflict().body(msg).into()),
-                DbError::Other(msg) => Err(HttpResponse::InternalServerError().body(msg).into()),
-                _ => Err(HttpResponse::InternalServerError().body("Failed to create user").into()),
-            }
+            error!("Registration failed: {}", e);
+            HttpResponse::BadRequest().json(json!({
+                "error": e.to_string()
+            }))
         }
     }
-} 
+}
+
+#[post("/login")]
+pub async fn login(service: Data<AuthService>, request: Json<LoginRequest>) -> HttpResponse {
+    match service.login(request.0).await {
+        Ok(response) => {
+            info!("Successfully logged in user");
+            HttpResponse::Ok().json(response)
+        }
+        Err(e) => {
+            error!("Login failed: {}", e);
+            HttpResponse::BadRequest().json(json!({
+                "error": e.to_string()
+            }))
+        }
+    }
+}
+
+#[get("/users/me")]
+pub async fn get_current_user(claims: Claims, state: Data<AppState>) -> Result<HttpResponse> {
+    let user = state
+        .user_repo
+        .find_by_id(Uuid::parse_str(&claims.sub).map_err(|_| {
+            error!("Invalid user ID format");
+            ErrorInternalServerError("Invalid user ID format")
+        })?)
+        .await
+        .map_err(|e| {
+            error!("Failed to find user: {}", e);
+            ErrorInternalServerError("Failed to find user")
+        })?
+        .ok_or_else(|| {
+            error!("User not found");
+            ErrorInternalServerError("User not found")
+        })?;
+
+    Ok(HttpResponse::Ok().json(user))
+}

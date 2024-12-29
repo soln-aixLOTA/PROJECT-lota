@@ -1,91 +1,57 @@
-use actix_cors::Cors;
-use actix_web::{middleware, web, App, HttpServer};
-use tracing::{info, Level};
-use tracing_subscriber::FmtSubscriber;
-
-mod config;
-mod error;
-mod logging;
-mod metrics;
-mod rate_limit;
-mod routes;
-mod secrets;
-mod tenant;
-mod usage_tracking;
-mod validation;
-mod worker_pool;
-
-use config::AppConfig;
-use metrics::init_metrics;
-use rate_limit::RateLimitMiddleware;
-use routes::{api, health};
-use secrets::SecretsManager;
-use tenant::TenantMiddleware;
-use usage_tracking::UsageTrackingMiddleware;
-use validation::ValidationMiddleware;
-use worker_pool::AdaptiveWorkerPool;
+use actix_web::middleware::Logger;
+use actix_web::{web, App, HttpServer};
+use api_gateway::{
+    config::AppConfig,
+    handlers::auth::{get_current_user, login, register},
+    middleware::auth::AuthMiddleware,
+    middleware::cors::configure_cors,
+    repositories::user::UserRepository,
+    state::AppState,
+};
+use sqlx::postgres::PgPoolOptions;
+use std::{env, sync::Arc};
+use tracing::info;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Initialize tracing
-    let _subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::INFO)
-        .compact()
-        .with_file(true)
-        .with_line_number(true)
-        .with_thread_ids(true)
-        .with_target(false)
-        .with_thread_names(true)
-        .with_ansi(true)
-        .with_env_filter("info")
-        .init();
+    // Initialize logging
+    tracing_subscriber::fmt::init();
 
-    // Load configuration first
-    let config = AppConfig::from_env().expect("Failed to load configuration");
+    // Create database connection pool
+    let db_ssl_mode = match env::var("ENVIRONMENT").as_deref() {
+        Ok("production") => "require",
+        _ => "prefer",
+    };
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect("postgres://postgres:postgres@localhost:5433/lotabots")
+        .await
+        .expect("Failed to connect to Postgres");
 
-    // Initialize logging with config
-    logging::init_logging(&config.logging);
+    // Initialize repositories
+    let user_repo = UserRepository::new(pool.clone());
 
-    let host = config.host.clone();
-    let port = config.port;
+    // Initialize application state
+    let state = web::Data::new(AppState::new(user_repo));
 
-    // Initialize metrics
-    init_metrics();
+    info!("Starting server at http://127.0.0.1:8080");
 
-    // Initialize secrets manager
-    let secrets_manager = SecretsManager::new(&config).await;
-
-    // Initialize worker pool
-    let worker_pool = AdaptiveWorkerPool::new(config.clone()).await;
-
-    info!("Starting API Gateway server on {}:{}", host, port);
-
-    let config = web::Data::new(config);
-    let secrets_manager = web::Data::new(secrets_manager);
-    let worker_pool = web::Data::new(worker_pool);
-
+    // Create HTTP server
     HttpServer::new(move || {
-        let cors = Cors::default()
-            .allow_any_origin()
-            .allow_any_method()
-            .allow_any_header()
-            .max_age(3600);
-
         App::new()
-            .wrap(cors)
-            .wrap(middleware::Logger::default())
-            .wrap(TenantMiddleware::new())
-            .wrap(RateLimitMiddleware::new())
-            .wrap(ValidationMiddleware::new())
-            .wrap(UsageTrackingMiddleware::new())
-            .app_data(config.clone())
-            .app_data(secrets_manager.clone())
-            .app_data(worker_pool.clone())
-            .service(health::health_check)
-            .service(routes::metrics::get_metrics)
-            .service(web::scope("/api/v1").configure(api::config))
+            .wrap(Logger::default())
+            .wrap(configure_cors())
+            .wrap(AuthMiddleware::new("your-secret-key".to_string()))
+            .app_data(state.clone())
+            .service(
+                web::scope("/api/v1")
+                    .service(register)
+                    .service(login)
+                    .service(get_current_user),
+            )
     })
-    .bind((host.as_str(), port))?
+    .bind("127.0.0.1:8080")?
+    .workers(1)
     .run()
     .await
 }

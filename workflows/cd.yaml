@@ -40,7 +40,14 @@ jobs:
         run: |
           kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} apply -k k8s/overlays/dev
 
-      - name: Verify deployment
+      - name: Check development deployment status
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/preprocessing-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/training-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/inference-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/attestation-service --timeout=60s
+
+      - name: Verify development deployment
         run: |
           kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/preprocessing-service
           kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/training-service
@@ -75,7 +82,14 @@ jobs:
         run: |
           kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} apply -k k8s/overlays/staging
 
-      - name: Verify deployment
+      - name: Check staging deployment status
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/preprocessing-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/training-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/inference-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/attestation-service --timeout=60s
+
+      - name: Verify staging deployment
         run: |
           kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/preprocessing-service
           kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/training-service
@@ -112,7 +126,14 @@ jobs:
         run: |
           kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} apply -k k8s/overlays/prod
 
-      - name: Verify deployment
+      - name: Check production deployment status
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/preprocessing-service --timeout=180s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/training-service --timeout=180s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/inference-service --timeout=180s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/attestation-service --timeout=180s
+
+      - name: Verify production deployment
         run: |
           kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/preprocessing-service
           kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/training-service

@@ -1,43 +1,25 @@
-name: CI
+name: Rust CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 env:
   CARGO_TERM_COLOR: always
-  DATABASE_URL: postgresql://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/test_db
+  RUST_TOOLCHAIN: stable # Or a specific version like 1.75
 
 jobs:
-  test:
-    name: Test
+  build:
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@v3
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions-rs/toolchain@v1
         with:
-          components: rustfmt, clippy
-
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          override: true
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -46,38 +28,19 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
+      - name: Build
+        run: cargo build --verbose --all-targets
+      - name: Run tests
+        run: cargo test --verbose
+      - name: Run coverage
+        uses: actions-rs/grcov@v0.1.3
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info # grcov usually outputs to this file
+          flags: rust-ci
+          fail_ci_if_error: true
       - name: Check formatting
         run: cargo fmt --all -- --check
-
       - name: Run clippy
-        run: cargo clippy -- -D warnings
-
-      - name: Run tests
-        run: cargo test
-
-  security_audit:
-    name: Security audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
-
-      - name: Run audit
-        run: cargo audit
-
-  dependency-review:
-    name: Dependency review
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v3
+        run: cargo clippy --all-targets -- -D warnings

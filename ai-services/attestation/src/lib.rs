@@ -1,5 +1,9 @@
 // Basic library setup for the attestation service
 
-pub fn example_function() {
-    println!("Hello from the attestation library!");
-} 
+pub mod api;
+pub mod config;
+pub mod constants;
+pub mod error;
+pub mod models;
+pub mod repository;
+pub mod services;

@@ -1,26 +1,24 @@
 use std::sync::Arc;
 
 use actix_web::{middleware::Logger, web, App, HttpServer};
-use dotenv::dotenv;
+use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+mod config;
 mod error;
+mod events;
 mod handlers;
 mod middleware;
 mod models;
 mod repositories;
 mod services;
-mod events;
-mod config;
 
 use crate::{
     handlers::tenant_handlers,
     middleware::{
-        audit_middleware::AuditMiddleware,
-        metrics_middleware::MetricsMiddleware,
-        rate_limit_middleware::RateLimitMiddleware,
-        tenant_middleware::TenantMiddleware,
+        audit_middleware::AuditMiddleware, metrics_middleware::MetricsMiddleware,
+        rate_limit_middleware::RateLimitMiddleware, tenant_middleware::TenantMiddleware,
     },
     repositories::tenant_repository::PostgresTenantRepository,
     services::tenant_service::TenantService,
@@ -79,9 +77,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(TenantMiddleware::new(tenant_service.clone()))
             // Configure routes
             .service(
-                web::scope("/api/v1")
-                    .configure(tenant_handlers::configure)
-                    // Add other handlers here
+                web::scope("/api/v1").configure(tenant_handlers::configure), // Add other handlers here
             )
             // Add Prometheus metrics endpoint
             .service(web::resource("/metrics").to(prometheus_endpoint::metrics))
@@ -116,9 +112,9 @@ mod prometheus_endpoint {
         let metric_families = prometheus::default_registry().gather();
         let mut buffer = Vec::new();
         encoder.encode(&metric_families, &mut buffer).unwrap();
-        
+
         HttpResponse::Ok()
             .content_type("text/plain; version=0.0.4")
             .body(buffer)
     }
-} 
+}

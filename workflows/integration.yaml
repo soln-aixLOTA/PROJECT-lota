@@ -117,12 +117,14 @@ jobs:
       - name: Run integration tests
         run: |
           pytest tests/integration --cov=tests/integration --cov-report=xml
+          # Consider adding flags to stop on failure or specific test selection
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage.xml
           flags: integration
+          fail_ci_if_error: true
 
   cleanup:
     name: Cleanup

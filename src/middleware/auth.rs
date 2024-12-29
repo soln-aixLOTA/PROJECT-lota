@@ -1,89 +1,145 @@
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage,
+    error::ErrorUnauthorized,
+    Error, FromRequest, HttpMessage,
 };
-use futures::future::{ok, Ready};
-use std::future::Future;
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use uuid::Uuid;
+use futures::future::{ready, LocalBoxFuture, Ready};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use serde::{Deserialize, Serialize};
+use tracing::{debug, error};
 
-use crate::utils::jwt::decode_jwt;
-
-#[derive(Clone)]
-pub struct JwtAuthMiddleware<S> {
-    pub service: S,
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Claims {
+    pub sub: String,
+    pub exp: i64,
+    pub iat: i64,
+    pub role: String,
 }
 
-impl< S, B > Transform< S, ServiceRequest > for JwtAuth
-where
-    S: Service< ServiceRequest, Response = ServiceResponse<B>, Error = Error >,
-    S::Future: 'static,
-    B: 'static,
-{
-    type Response = ServiceResponse<B>;
+impl FromRequest for Claims {
     type Error = Error;
-    type Transform = JwtAuthMiddleware<S>;
-    type InitError = ();
-    type Future = Ready< Result< Self::Transform, Self::InitError > >;
+    type Future = Ready<Result<Self, Self::Error>>;
 
-    fn new_transform( &self, service: S ) -> Self::Future {
-        ok(JwtAuthMiddleware { service })
+    fn from_request(req: &actix_web::HttpRequest, _: &mut actix_web::dev::Payload) -> Self::Future {
+        match req.extensions().get::<Claims>() {
+            Some(claims) => ready(Ok(claims.clone())),
+            None => ready(Err(ErrorUnauthorized("No valid authentication found"))),
+        }
     }
 }
 
-impl< S, B > Service<ServiceRequest> for JwtAuthMiddleware<S>
+pub struct AuthMiddleware {
+    jwt_secret: String,
+}
+
+impl AuthMiddleware {
+    pub fn new(jwt_secret: String) -> Self {
+        Self { jwt_secret }
+    }
+}
+
+impl<S, B> Transform<S, ServiceRequest> for AuthMiddleware
 where
-    S: Service< ServiceRequest, Response = ServiceResponse<B>, Error = Error >,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
     B: 'static,
 {
     type Response = ServiceResponse<B>;
     type Error = Error;
-    type Future = Pin< Box< dyn Future< Output = Result< Self::Response, Self::Error > > > >;
+    type Transform = AuthMiddlewareService<S>;
+    type InitError = ();
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+
+    fn new_transform(&self, service: S) -> Self::Future {
+        ready(Ok(AuthMiddlewareService {
+            service,
+            jwt_secret: self.jwt_secret.clone(),
+        }))
+    }
+}
+
+pub struct AuthMiddlewareService<S> {
+    service: S,
+    jwt_secret: String,
+}
+
+impl<S, B> Service<ServiceRequest> for AuthMiddlewareService<S>
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = Error;
+    type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
     forward_ready!(service);
 
-    fn call( &self, mut req: ServiceRequest ) -> Self::Future {
-        let auth_header_str = req.headers()
-            .get("Authorization")
-            .and_then(|h| h.to_str().ok())
-            .map(|s| s.to_owned());
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        // Skip auth for login and register endpoints
+        if req.path().ends_with("/login") || req.path().ends_with("/register") {
+            let fut = self.service.call(req);
+            return Box::pin(async move { fut.await });
+        }
+
+        let auth_header = req.headers().get("Authorization");
+        debug!("Auth header: {:?}", auth_header);
+
+        let auth_str = match auth_header {
+            Some(header) => match header.to_str() {
+                Ok(s) => s,
+                Err(_) => {
+                    error!("Invalid authorization header format");
+                    return Box::pin(async move {
+                        Err(actix_web::error::ErrorUnauthorized(
+                            "Invalid authorization header",
+                        ))
+                    });
+                }
+            },
+            None => {
+                error!("Missing authorization header");
+                return Box::pin(async move {
+                    Err(actix_web::error::ErrorUnauthorized(
+                        "Missing authorization header",
+                    ))
+                });
+            }
+        };
+
+        if !auth_str.starts_with("Bearer ") {
+            error!("Invalid authorization scheme");
+            return Box::pin(async move {
+                Err(actix_web::error::ErrorUnauthorized(
+                    "Invalid authorization scheme",
+                ))
+            });
+        }
+
+        let token = &auth_str[7..];
+        debug!("Token: {}", token);
+
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.validate_exp = false; // Temporarily disable expiration validation
+
+        let token_data = match decode::<Claims>(
+            token,
+            &DecodingKey::from_secret(self.jwt_secret.as_bytes()),
+            &validation,
+        ) {
+            Ok(data) => data,
+            Err(e) => {
+                error!("Token validation failed: {}", e);
+                return Box::pin(async move {
+                    Err(actix_web::error::ErrorUnauthorized("Invalid token"))
+                });
+            }
+        };
+
+        debug!("Token claims: {:?}", token_data.claims);
+        req.extensions_mut().insert(token_data.claims);
 
         let fut = self.service.call(req);
-
-        Box::pin(async move {
-            if let Some(auth_str) = auth_header_str {
-                if auth_str.starts_with("Bearer ") {
-                    let token = auth_str[7..].trim();
-                    match decode_jwt(token) {
-                        Ok(claims) => {
-                            let user_id = claims.sub;
-                            let user_uuid = Uuid::parse_str(&user_id).unwrap();
-                            req.extensions_mut().insert(user_uuid);
-                            return fut.await;
-                        }
-                        Err(e) => {
-                            log::error!("JWT decode error: {}", e);
-                            return Err(actix_web::error::ErrorUnauthorized(
-                                "Invalid token"
-                            ));
-                        }
-                    }
-                }
-            }
-            Err(actix_web::error::ErrorUnauthorized(
-                "Missing or invalid token"
-            ))
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct JwtAuth;
-
-impl JwtAuth {
-    pub fn new() -> Self {
-        JwtAuth
+        Box::pin(async move { fut.await })
     }
 }

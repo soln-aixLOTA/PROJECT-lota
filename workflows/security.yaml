@@ -61,6 +61,7 @@ jobs:
         uses: controlplaneio/kubesec-action@master
         with:
           input: k8s/base/*.yaml
+          fail-threshold: warning
 
       - name: Run kube-score
         uses: piraces/kube-score-action@v1

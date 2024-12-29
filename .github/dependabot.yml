@@ -45,6 +45,34 @@ updates:
       - dependency-type: "direct"
       - dependency-type: "indirect"
 
+  # Update for Cargo packages
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    target-branch: "main"
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore(dev)"
+      include: "scope"
+    ignore:
+      # Ignore updates to sqlx until we resolve the rsa vulnerability
+      - dependency-name: "sqlx"
+        update-types: ["version-update:semver-patch"]
+    
+  # Also watch GitHub Actions versions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "ci"
+      - "dependencies"
+
 # Optional: Configure automated security updates separately
 security-updates:
   # Enable automatic security updates
