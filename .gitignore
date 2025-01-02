@@ -119,3 +119,7 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+./node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node
+./node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node
+./target/debug/api_gateway
+./target/debug/deps/api_gateway-2a5a720f4ebe107a
