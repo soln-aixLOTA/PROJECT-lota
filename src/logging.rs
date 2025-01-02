@@ -1,44 +1,35 @@
-use tracing::{subscriber::set_global_default, Level, Subscriber};
-use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
-use tracing_log::LogTracer;
-use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
+use log::{Level, LevelFilter, Metadata, Record};
+use serde_json::json;
+use std::io::{self, Write};
 
-/// Compose multiple layers into a `tracing` subscriber.
-///
-/// # Implementation Notes
-///
-/// We are using `impl Subscriber` as return type to avoid having to
-/// spell out the actual type of the returned subscriber, which is
-/// indeed quite complex.
-pub fn get_subscriber(name: String, env_filter: String) -> impl Subscriber + Send + Sync {
-    let env_filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter));
-    let formatting_layer = BunyanFormattingLayer::new(name.into(), std::io::stdout);
-    let subscriber = Registry::default()
-        .with(env_filter)
-        .with(JsonStorageLayer)
-        .with(formatting_layer);
-    subscriber
-}
+pub struct JsonLogger;
 
-/// Register a subscriber as global default to process span data.
-///
-/// It should only be called once!
-pub fn init_subscriber(subscriber: impl Subscriber + Send + Sync) {
-    LogTracer::init().expect("Failed to set logger");
-    set_global_default(subscriber).expect("Failed to set subscriber");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_init_logging() {
-        let config = LoggingConfig {
-            level: "info".to_string(),
-            format: "text".to_string(),
-        };
-        init_logging(&config);
+impl log::Log for JsonLogger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= Level::Info
     }
+
+    fn log(&self, record: &Record) {
+        if self.enabled(record.metadata()) {
+            let log_entry = json!({
+                "timestamp": chrono::Utc::now().to_rfc3339(),
+                "level": record.level().to_string(),
+                "target": record.target(),
+                "message": record.args(),
+                "module_path": record.module_path(),
+                "file": record.file(),
+                "line": record.line(),
+            });
+
+            writeln!(io::stdout(), "{}", log_entry).unwrap();
+        }
+    }
+
+    fn flush(&self) {}
+}
+
+pub fn init_logger() {
+    log::set_boxed_logger(Box::new(JsonLogger))
+        .map(|()| log::set_max_level(LevelFilter::Info))
+        .unwrap();
 }

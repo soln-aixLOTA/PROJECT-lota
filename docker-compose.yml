@@ -3,31 +3,47 @@ version: '3.8'
 
 services:
   api-gateway:
-    build:
-      context: ./api-gateway
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
+    image: rust:1.67-slim
+    container_name: api-gateway
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    networks:
+      - lotabots-network
     environment:
       - RUST_LOG=info
+    volumes:
+      - ./config:/config:ro
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
+  inference-service:
+    image: python:3.9-slim
+    container_name: inference-service
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    networks:
+      - lotabots-network
+    environment:
+      - PYTHONUNBUFFERED=1
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./models:/models:ro
     depends_on:
-      - api-gateway
+      api-gateway:
+        condition: service_healthy
 
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    depends_on:
-      - prometheus
+networks:
+  lotabots-network:
+    driver: bridge
