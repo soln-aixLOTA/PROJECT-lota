@@ -110,4 +110,19 @@ describe('Bot Management', () => {
             cy.get('#inference-form .error-message').should('be.visible').and('contain', 'Service unavailable');
         });
     });
+
+    describe('Bot Deletion', () => {
+        beforeEach(() => {
+            cy.get('#botName').type('Deletable Bot');
+            cy.get('#botModel').select('gpt-4');
+            cy.get('#bot-creation').submit();
+            cy.get('#bot-creation .success-message').should('be.visible');
+        });
+
+        it('should successfully delete a bot', () => {
+            cy.get('#bot-list').contains('Deletable Bot').parent().find('.delete-button').click();
+            cy.get('#confirmation-dialog .confirm-button').click();
+            cy.get('#bot-list').should('not.contain', 'Deletable Bot');
+        });
+    });
 }); 

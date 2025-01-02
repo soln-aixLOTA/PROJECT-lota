@@ -1,102 +1,93 @@
-use crate::config::Config;
-use crate::services::{inference::InferenceClient, training::TrainingClient, user::UserClient};
 use dashmap::DashMap;
+use governor::{
+    clock::DefaultClock,
+    state::{InMemoryState, NotKeyed},
+    Quota, RateLimiter,
+};
+use prometheus::{Histogram, HistogramOpts, IntCounter, Opts, Registry};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::sync::RwLock;
-use governor::{RateLimiter, Quota, clock::DefaultClock};
-use nonzero_ext::nonzero;
+use std::time::Duration;
+
+use crate::config::Config;
+use crate::error::Error;
+
+#[derive(Clone)]
+pub struct Metrics {
+    pub requests_total: IntCounter,
+    pub requests_duration: Histogram,
+    pub active_connections: prometheus::Gauge,
+    pub rate_limited_requests: IntCounter,
+}
 
 #[derive(Clone)]
 pub struct AppState {
-    pub config: Config,
-    pub user_client: Arc<UserClient>,
-    pub inference_client: Arc<InferenceClient>,
-    pub training_client: Arc<TrainingClient>,
-    pub rate_limiters: Arc<DashMap<String, Arc<RateLimiter<String, DefaultClock>>>>,
+    pub config: Arc<Config>,
     pub metrics: Arc<Metrics>,
-}
-
-pub struct Metrics {
-    pub requests_total: prometheus::IntCounter,
-    pub requests_duration: prometheus::Histogram,
-    pub active_connections: prometheus::Gauge,
-    pub rate_limited_requests: prometheus::IntCounter,
+    pub rate_limiter: Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>,
 }
 
 impl AppState {
-    pub async fn new(config: Config) -> std::io::Result<Self> {
-        // Initialize service clients
-        let user_client = Arc::new(UserClient::new(&config.user_service_url));
-        let inference_client = Arc::new(InferenceClient::new(&config.inference_service_url));
-        let training_client = Arc::new(TrainingClient::new(&config.training_service_url));
-        
-        // Initialize rate limiters map
-        let rate_limiters = Arc::new(DashMap::new());
-        
-        // Initialize metrics
-        let metrics = Arc::new(Metrics::new()?);
-        
-        Ok(Self {
+    pub fn new(config: Config) -> Result<Self, Error> {
+        let config = Arc::new(config);
+        let metrics = Arc::new(create_metrics()?);
+        let rate_limiter = Arc::new(create_rate_limiter(&config));
+
+        Ok(AppState {
             config,
-            user_client,
-            inference_client,
-            training_client,
-            rate_limiters,
             metrics,
+            rate_limiter,
         })
-    }
-    
-    pub fn get_rate_limiter(&self, key: &str) -> Arc<RateLimiter<String, DefaultClock>> {
-        self.rate_limiters
-            .entry(key.to_string())
-            .or_insert_with(|| {
-                Arc::new(RateLimiter::keyed(
-                    Quota::per_second(nonzero!(self.config.rate_limit_per_second.into()))
-                        .allow_burst(nonzero!(self.config.rate_limit_burst.into()))
-                ))
-            })
-            .clone()
     }
 }
 
-impl Metrics {
-    pub fn new() -> std::io::Result<Self> {
-        let registry = prometheus::Registry::new();
-        
-        let requests_total = prometheus::IntCounter::new(
-            "api_gateway_requests_total",
-            "Total number of requests processed"
-        )?;
-        
-        let requests_duration = prometheus::Histogram::with_opts(
-            prometheus::HistogramOpts::new(
-                "api_gateway_request_duration_seconds",
-                "Request duration in seconds"
-            )
-            .buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0])
-        )?;
-        
-        let active_connections = prometheus::Gauge::new(
-            "api_gateway_active_connections",
-            "Number of active connections"
-        )?;
-        
-        let rate_limited_requests = prometheus::IntCounter::new(
-            "api_gateway_rate_limited_requests_total",
-            "Total number of rate-limited requests"
-        )?;
-        
-        registry.register(Box::new(requests_total.clone()))?;
-        registry.register(Box::new(requests_duration.clone()))?;
-        registry.register(Box::new(active_connections.clone()))?;
-        registry.register(Box::new(rate_limited_requests.clone()))?;
-        
-        Ok(Self {
-            requests_total,
-            requests_duration,
-            active_connections,
-            rate_limited_requests,
-        })
-    }
-} 
+fn create_rate_limiter(config: &Config) -> RateLimiter<NotKeyed, InMemoryState, DefaultClock> {
+    let per_second = std::num::NonZeroU32::new(config.rate_limit_per_second)
+        .expect("rate_limit_per_second must be non-zero");
+    let burst = std::num::NonZeroU32::new(config.rate_limit_burst)
+        .expect("rate_limit_burst must be non-zero");
+
+    RateLimiter::direct(Quota::per_second(per_second).allow_burst(burst))
+}
+
+fn create_metrics() -> Result<Metrics, Error> {
+    let registry = Registry::new();
+
+    let requests_total = IntCounter::new("api_requests_total", "Total number of API requests")
+        .map_err(|e| Error::Internal(e.to_string()))?;
+
+    let requests_duration = Histogram::with_opts(HistogramOpts::new(
+        "api_request_duration_seconds",
+        "API request duration in seconds",
+    ))
+    .map_err(|e| Error::Internal(e.to_string()))?;
+
+    let active_connections =
+        prometheus::Gauge::new("api_active_connections", "Number of active connections")
+            .map_err(|e| Error::Internal(e.to_string()))?;
+
+    let rate_limited_requests = IntCounter::new(
+        "api_rate_limited_requests_total",
+        "Total number of rate limited requests",
+    )
+    .map_err(|e| Error::Internal(e.to_string()))?;
+
+    registry
+        .register(Box::new(requests_total.clone()))
+        .map_err(|e| Error::Internal(e.to_string()))?;
+    registry
+        .register(Box::new(requests_duration.clone()))
+        .map_err(|e| Error::Internal(e.to_string()))?;
+    registry
+        .register(Box::new(active_connections.clone()))
+        .map_err(|e| Error::Internal(e.to_string()))?;
+    registry
+        .register(Box::new(rate_limited_requests.clone()))
+        .map_err(|e| Error::Internal(e.to_string()))?;
+
+    Ok(Metrics {
+        requests_total,
+        requests_duration,
+        active_connections,
+        rate_limited_requests,
+    })
+}

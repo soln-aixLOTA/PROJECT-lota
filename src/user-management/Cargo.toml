@@ -1,8 +1,0 @@
-# ... other dependencies
-
-[dependencies]
-actix-web = "4"
-serde = { version = "1.0", features = ["derive"] }
-# Example of updating a dependency:
-tokio = "1.36.0" # Update to the latest version
-validator = "0.16" 

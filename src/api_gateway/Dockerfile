@@ -1,5 +1,7 @@
-# Builder stage
-FROM rust:1.74-slim-bullseye as builder
+# Build stage
+FROM rust:1.70-slim-bullseye as builder
+
+WORKDIR /usr/src/app
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -7,15 +9,16 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a new empty shell project
-WORKDIR /usr/src/api-gateway
+# Copy the entire workspace
 COPY . .
 
-# Build with release profile
-RUN cargo build --release
+# Build the API Gateway service
+RUN cargo build --release --package api_gateway
 
 # Runtime stage
 FROM debian:bullseye-slim
+
+WORKDIR /app
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -24,16 +27,18 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the binary from builder
-COPY --from=builder /usr/src/api-gateway/target/release/api-gateway /usr/local/bin/api-gateway
+COPY --from=builder /usr/src/app/target/release/api_gateway /app/api_gateway
 
-# Create a non-root user
-RUN useradd -m -U -s /bin/false api-gateway
+# Create non-root user
+RUN useradd -r -u 1000 -g root lotabots
+USER lotabots
 
-# Switch to non-root user
-USER api-gateway
+# Set environment variables
+ENV RUST_LOG=info
+ENV RUST_BACKTRACE=1
 
-# Expose ports
-EXPOSE 8080 9090
+# Expose the service port
+EXPOSE 8080
 
-# Set the entrypoint
-ENTRYPOINT ["api-gateway"] 
+# Run the service
+CMD ["./api_gateway"] 

@@ -129,3 +129,5 @@ next-env.d.ts
 # Misc project specific
 Guest_Drivers/
 api-gateway/target/
+
+.codegpt
