@@ -26,6 +26,8 @@ Cargo.lock
 
 # Dependencies
 /node_modules/
+.npm/
+.cargo/
 
 # Database
 *.db
@@ -74,73 +76,35 @@ target/coverage/
 
 # Cache directories
 .cache/
-.npm/
-.cargo/
+.codegpt/
+.dist/
+.swc/
+.next/
 
-# Python virtual environments (if using Python scripts)
-venv/
-.venv/
-__pycache__/
-*.py[cod]
-
-# macOS specific
+# OS specific
+# macOS
 .DS_Store
 .AppleDouble
 .LSOverride
-
-# Windows specific
+# Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
-
-# Linux specific
+# Linux
 *~
 .directory
 
 # Project specific
 uploads/
 prompt-history/
-.codegpt/
-.dist/
-.swc/
-.next/
+
+# Node.js specific
+node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node
+node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node
 
 # Terraform
 .terraform/
-*.tfstate
-*.tfstate.*
-crash.log
-crash.*.log
-*.tfvars
-*.tfvars.json
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
-.terraformrc
-terraform.rc
-./node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node
-./node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node
-./target/debug/api_gateway
-./target/debug/deps/api_gateway-2a5a720f4ebe107a
-
-# Terraform
-.terraform/
-*.tfstate
-*.tfstate.*
-crash.log
-crash.*.log
-*.tfvars
-*.tfvars.json
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
-.terraformrc
-terraform.rc
-
-# Terraform
-.terraform/
+**/.terraform/
 *.tfstate
 *.tfstate.*
 crash.log
@@ -154,3 +118,9 @@ override.tf.json
 .terraformrc
 terraform.rc
 cloud-strategy/configs/terraform/.terraform/
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
