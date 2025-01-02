@@ -1,6 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sqlx::PgPool;
-use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
@@ -9,11 +8,11 @@ use crate::{
 };
 
 pub struct AttestationService {
-    pool: Arc<PgPool>,
+    pool: PgPool,
 }
 
 impl AttestationService {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
@@ -22,34 +21,50 @@ impl AttestationService {
         req: AttestationRequest,
     ) -> Result<Attestation, sqlx::Error> {
         // Verify signature
-        let data_str = serde_json::to_string(&req.attestation_data)
-            .map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
+        let data = json!({
+            "version_id": req.version_id,
+            "agent_id": req.agent_id,
+            "attestation_type": req.attestation_type,
+            "attestation_data": req.attestation_data,
+            "input_hash": req.input_hash,
+            "output_hash": req.output_hash,
+        });
+        let data_str = data.to_string();
 
-        if !verify_signature(&data_str, &req.signature, &req.public_key) {
+        if !verify_signature(data_str.as_bytes(), &req.signature, &req.public_key) {
             return Err(sqlx::Error::Protocol("Invalid signature".into()));
         }
 
-        // Insert into database
         let attestation = sqlx::query_as!(
             Attestation,
             r#"
             INSERT INTO attestations (
-                model_id, version_id, attestation_type, attestation_data,
-                signature, public_key, metadata, status
+                version_id,
+                agent_id,
+                attestation_type,
+                attestation_data,
+                input_hash,
+                output_hash,
+                signature,
+                public_key,
+                confidence_score,
+                status
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING *
             "#,
-            req.model_id,
             req.version_id,
+            req.agent_id,
             req.attestation_type,
             req.attestation_data as _,
+            req.input_hash,
+            req.output_hash,
             req.signature,
             req.public_key,
-            req.metadata as _,
+            req.confidence_score,
             "pending" as _
         )
-        .fetch_one(&*self.pool)
+        .fetch_one(&self.pool)
         .await?;
 
         Ok(attestation)
@@ -57,36 +72,43 @@ impl AttestationService {
 
     pub async fn get_attestation(&self, id: Uuid) -> Result<Option<Attestation>, sqlx::Error> {
         sqlx::query_as!(Attestation, "SELECT * FROM attestations WHERE id = $1", id)
-            .fetch_optional(&*self.pool)
+            .fetch_optional(&self.pool)
             .await
     }
 
     pub async fn list_attestations(
         &self,
-        model_id: Option<Uuid>,
         version_id: Option<Uuid>,
+        agent_id: Option<Uuid>,
+        attestation_type: Option<String>,
         status: Option<String>,
-        limit: i64,
-        offset: i64,
+        limit: Option<i64>,
+        offset: Option<i64>,
     ) -> Result<Vec<Attestation>, sqlx::Error> {
+        let limit = limit.unwrap_or(100);
+        let offset = offset.unwrap_or(0);
+
         let attestations = sqlx::query_as!(
             Attestation,
             r#"
             SELECT *
             FROM attestations
-            WHERE ($1::uuid IS NULL OR model_id = $1)
-            AND ($2::uuid IS NULL OR version_id = $2)
-            AND ($3::text IS NULL OR status = $3)
+            WHERE
+                ($1::uuid IS NULL OR version_id = $1) AND
+                ($2::uuid IS NULL OR agent_id = $2) AND
+                ($3::text IS NULL OR attestation_type = $3) AND
+                ($4::text IS NULL OR status = $4)
             ORDER BY created_at DESC
-            LIMIT $4 OFFSET $5
+            LIMIT $5 OFFSET $6
             "#,
-            model_id,
             version_id,
+            agent_id,
+            attestation_type,
             status,
             limit,
             offset
         )
-        .fetch_all(&*self.pool)
+        .fetch_all(&self.pool)
         .await?;
 
         Ok(attestations)

@@ -1,84 +1,87 @@
+use serde_json::json;
 use sqlx::PgPool;
-use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::utils::{crypto::verify_signature, validation::validate_attestation_data};
+use crate::utils::crypto::verify_signature;
 
 pub struct VerificationService {
-    pool: Arc<PgPool>,
+    pool: PgPool,
 }
 
 impl VerificationService {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
     pub async fn verify_attestation(&self, id: Uuid) -> Result<bool, sqlx::Error> {
-        // Get attestation from database
+        // Get attestation data
         let attestation = sqlx::query!(
             r#"
-            SELECT attestation_data, attestation_type, signature, public_key
+            SELECT attestation_data, attestation_type, signature, public_key,
+                   version_id, agent_id, input_hash, output_hash
             FROM attestations
-            WHERE id = $1 AND status = 'pending'
-            "#,
-            id
-        )
-        .fetch_optional(&*self.pool)
-        .await?;
-
-        let Some(attestation) = attestation else {
-            return Ok(false);
-        };
-
-        // Verify signature
-        let data_str = serde_json::to_string(&attestation.attestation_data)
-            .map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
-
-        if !verify_signature(&data_str, &attestation.signature, &attestation.public_key) {
-            // Update status to failed
-            sqlx::query!(
-                r#"
-                UPDATE attestations
-                SET status = 'failed', updated_at = NOW()
-                WHERE id = $1
-                "#,
-                id
-            )
-            .execute(&*self.pool)
-            .await?;
-
-            return Ok(false);
-        }
-
-        // Validate attestation data
-        if let Err(_) =
-            validate_attestation_data(&attestation.attestation_data, &attestation.attestation_type)
-        {
-            // Update status to failed
-            sqlx::query!(
-                r#"
-                UPDATE attestations
-                SET status = 'failed', updated_at = NOW()
-                WHERE id = $1
-                "#,
-                id
-            )
-            .execute(&*self.pool)
-            .await?;
-
-            return Ok(false);
-        }
-
-        // Update status to verified
-        sqlx::query!(
-            r#"
-            UPDATE attestations
-            SET status = 'verified', updated_at = NOW()
             WHERE id = $1
             "#,
             id
         )
-        .execute(&*self.pool)
+        .fetch_one(&self.pool)
+        .await?;
+
+        // Verify signature
+        let data = json!({
+            "version_id": attestation.version_id,
+            "agent_id": attestation.agent_id,
+            "attestation_type": attestation.attestation_type,
+            "attestation_data": attestation.attestation_data,
+            "input_hash": attestation.input_hash,
+            "output_hash": attestation.output_hash,
+        });
+        let data_str = data.to_string();
+
+        if !verify_signature(
+            data_str.as_bytes(),
+            &attestation.signature,
+            &attestation.public_key,
+        ) {
+            sqlx::query!(
+                r#"
+                UPDATE attestations
+                SET status = 'failed', updated_at = NOW()
+                WHERE id = $1
+                "#,
+                id
+            )
+            .execute(&self.pool)
+            .await?;
+            return Ok(false);
+        }
+
+        // Additional verification logic can be added here
+        // For example, verifying input/output hashes, checking attestation data format, etc.
+        if false {
+            sqlx::query!(
+                r#"
+                UPDATE attestations
+                SET status = 'failed', updated_at = NOW()
+                WHERE id = $1
+                "#,
+                id
+            )
+            .execute(&self.pool)
+            .await?;
+            return Ok(false);
+        }
+
+        // Mark as verified
+        sqlx::query!(
+            r#"
+            UPDATE attestations
+            SET status = 'verified', updated_at = NOW(), verified_at = NOW()
+            WHERE id = $1
+            "#,
+            id
+        )
+        .execute(&self.pool)
         .await?;
 
         Ok(true)

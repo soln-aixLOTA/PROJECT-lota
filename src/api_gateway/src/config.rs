@@ -1,72 +1,51 @@
 use config::{Config as ConfigBuilder, ConfigError, Environment, File};
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub server: ServerConfig,
-    pub database: DatabaseConfig,
-    pub rate_limit_per_second: u32,
-    pub rate_limit_burst: u32,
     pub services: ServicesConfig,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
-    pub workers: usize,
+    pub workers: i32,
     pub backlog: i32,
     pub keep_alive: Option<u64>,
     pub client_timeout: u64,
     pub client_shutdown: u64,
-    pub shutdown_timeout: u64,
     pub max_connection_rate: Option<u32>,
     pub max_connections: u32,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct DatabaseConfig {
-    pub url: String,
-    pub max_connections: u32,
-}
-
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ServicesConfig {
-    pub user_service_url: String,
-    pub inference_service_url: String,
-    pub attestation_service_url: String,
+    pub attestation_url: String,
 }
 
 impl Config {
-    pub fn from_env() -> Result<Self, ConfigError> {
-        Self::new()
-    }
-
-    pub fn new() -> Result<Self, ConfigError> {
-        let builder = ConfigBuilder::builder()
+    pub fn load() -> Result<Self, ConfigError> {
+        let config = ConfigBuilder::builder()
             // Set defaults
-            .set_default("server.host", "127.0.0.1")?
+            .set_default("server.host", "0.0.0.0")?
             .set_default("server.port", 8080)?
-            .set_default("server.workers", 4)?
-            .set_default("rate_limit_per_second", 100)?
-            .set_default("rate_limit_burst", 50)?
-            // Load from file
+            .set_default("server.workers", num_cpus::get() as i32)?
+            .set_default("server.backlog", 1024)?
+            .set_default("server.keep_alive", Some(75u64))?
+            .set_default("server.client_timeout", 60u64)?
+            .set_default("server.client_shutdown", 30u64)?
+            .set_default("server.max_connection_rate", Some(256u32))?
+            .set_default("server.max_connections", 25_000u32)?
+            .set_default("services.attestation_url", "http://attestation:8080")?
+            // Add config file if it exists
             .add_source(File::with_name("config/default").required(false))
             .add_source(File::with_name("config/local").required(false))
-            // Load from environment
-            .add_source(
-                Environment::with_prefix("LOTA")
-                    .separator("_")
-                    .try_parsing(true),
-            );
+            // Add environment variables with prefix "APP_"
+            .add_source(Environment::with_prefix("APP").separator("__"))
+            .build()?;
 
-        let mut config: Config = builder.build()?.try_deserialize()?;
-
-        // Update workers count based on CPU cores if not set in config
-        if config.server.workers == 4 {
-            config.server.workers = num_cpus::get();
-        }
-
-        Ok(config)
+        config.try_deserialize()
     }
 }

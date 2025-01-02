@@ -1,55 +1,40 @@
-#!/usr/bin/env bash
-set -x
-set -eo pipefail
+#!/bin/bash
+set -e
 
-if ! [ -x "$(command -v psql)" ]; then
-  echo >&2 "Error: psql is not installed."
-  exit 1
+# Load environment variables from .env file
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
 fi
 
-if ! [ -x "$(command -v sqlx)" ]; then
-  echo >&2 "Error: sqlx is not installed."
-  echo >&2 "Use:"
-  echo >&2 "    cargo install sqlx-cli --no-default-features --features native-tls,postgres"
-  exit 1
-fi
+# Default values
+DB_USER=${POSTGRES_USER:-postgres}
+DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+DB_NAME=${POSTGRES_DB:-lotabots}
+DB_PORT=${POSTGRES_PORT:-5432}
+DB_HOST=${POSTGRES_HOST:-localhost}
 
-# Check if a custom user has been set, otherwise default to 'postgres'
-DB_USER="${POSTGRES_USER:=postgres}"
-# Check if a custom password has been set, otherwise default to 'password'
-DB_PASSWORD="${POSTGRES_PASSWORD:=password}"
-# Check if a custom database name has been set, otherwise default to 'lota_db'
-DB_NAME="${POSTGRES_DB:=lota_db}"
-# Check if a custom port has been set, otherwise default to '5433'
-DB_PORT="${POSTGRES_PORT:=5433}"
-# Check if a custom host has been set, otherwise default to 'localhost'
-DB_HOST="${POSTGRES_HOST:=localhost}"
-
-# Allow to skip Docker if a dockerized Postgres database is already running
-if [[ -z "${SKIP_DOCKER}" ]]
-then
-  # Launch postgres using Docker
-  docker run \
-      -e POSTGRES_USER="${DB_USER}" \
-      -e POSTGRES_PASSWORD="${DB_PASSWORD}" \
-      -e POSTGRES_DB="${DB_NAME}" \
-      -p "${DB_PORT}":5432 \
-      -d postgres \
-      postgres -N 1000
-fi
-
-# Keep pinging Postgres until it's ready to accept commands
-export PGPASSWORD="${DB_PASSWORD}"
-until psql -h "${DB_HOST}" -U "${DB_USER}" -p "${DB_PORT}" -d "postgres" -c '\q'; do
-  >&2 echo "Postgres is still unavailable - sleeping"
+# Wait for PostgreSQL to be ready
+until PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "postgres" -c '\q'; do
+  >&2 echo "PostgreSQL is unavailable - sleeping"
   sleep 1
 done
 
->&2 echo "Postgres is up and running on port ${DB_PORT}!"
+>&2 echo "PostgreSQL is up - executing command"
 
-DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
-export DATABASE_URL
-sqlx database create
-sqlx migrate run
+# Create database if it doesn't exist
+PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "postgres" -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || \
+PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "postgres" -c "CREATE DATABASE $DB_NAME"
 
->&2 echo "Postgres has been migrated, ready to go!" 
+# Create extensions
+PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
+
+# Set DATABASE_URL for sqlx
+export DATABASE_URL="postgres://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
+
+# Install sqlx-cli if not installed
+cargo install sqlx-cli --no-default-features --features native-tls,postgres
+
+# Run migrations
+cd src/attestation && sqlx migrate run
+
+echo "Database initialization completed successfully" 

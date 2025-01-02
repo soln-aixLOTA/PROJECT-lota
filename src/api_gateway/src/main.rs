@@ -1,65 +1,61 @@
-use actix_web::{web, App, HttpServer};
-use opentelemetry::global;
-use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-mod auth;
-mod config;
-mod error;
-mod handlers;
-mod middleware;
-mod models;
-mod services;
-mod state;
+use actix_cors::Cors;
+use actix_web::{middleware::Logger, web, App, HttpServer};
+use opentelemetry::global;
+use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
 use crate::config::Config;
-use crate::error::Error;
-use crate::middleware::{auth::AuthMiddleware, rate_limit::RateLimitMiddleware};
 use crate::state::AppState;
+
+mod config;
+mod error;
+mod routes;
+mod state;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Initialize configuration
-    let config = Config::from_env().expect("Failed to load configuration");
+    // Load configuration
+    let config = Config::load().expect("Failed to load configuration");
 
     // Initialize tracing
-    let tracer = opentelemetry_jaeger::new_pipeline()
-        .with_service_name("api-gateway")
-        .install_simple()
-        .expect("Failed to install Jaeger tracer");
+    let tracer = opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(opentelemetry_otlp::new_exporter().tonic())
+        .install_batch(opentelemetry::runtime::Tokio)
+        .expect("Failed to create tracer");
 
-    tracing_subscriber::registry()
+    let subscriber = Registry::default()
         .with(tracing_opentelemetry::layer().with_tracer(tracer))
-        .with(tracing_subscriber::EnvFilter::from_default_env())
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+        .with(EnvFilter::from_default_env());
 
-    // Initialize shared state
-    let state: Arc<AppState> = Arc::new(AppState::new(config.clone())?);
+    tracing::subscriber::set_global_default(subscriber).expect("Failed to set tracing subscriber");
 
-    // Create HTTP server
+    // Initialize application state
+    let state = web::Data::new(AppState::new(&config));
+
+    // Start HTTP server
     let server = HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(state.clone()))
-            .wrap(tracing_actix_web::TracingLogger::default())
-            .wrap(AuthMiddleware::new(state.clone()))
-            .wrap(RateLimitMiddleware::new(state.clone()))
-            .configure(handlers::configure_routes)
+            .app_data(state.clone())
+            .wrap(Logger::default())
+            .wrap(
+                Cors::default()
+                    .allow_any_origin()
+                    .allow_any_method()
+                    .allow_any_header(),
+            )
+            .configure(routes::configure)
     })
-    .bind(format!("0.0.0.0:{}", config.server.port))?
-    .workers(config.server.workers)
-    .backlog(config.server.backlog)
-    .keep_alive(config.server.keep_alive)
-    .client_timeout(Duration::from_secs(config.server.client_timeout))
-    .client_shutdown(Duration::from_secs(config.server.client_shutdown))
-    .shutdown_timeout(config.server.shutdown_timeout)
-    .max_connection_rate(config.server.max_connection_rate)
-    .max_connections(config.server.max_connections);
+    .bind((config.server.host.clone(), config.server.port))?
+    .workers(config.server.workers as usize)
+    .backlog(config.server.backlog.try_into().unwrap())
+    .keep_alive(Duration::from_secs(config.server.keep_alive.unwrap_or(75)))
+    .client_request_timeout(Duration::from_secs(config.server.client_timeout))
+    .client_disconnect_timeout(Duration::from_secs(config.server.client_shutdown))
+    .max_connection_rate(config.server.max_connection_rate.unwrap_or(256) as usize)
+    .max_connections(config.server.max_connections as usize);
 
-    // Start server
-    println!("Starting server at http://0.0.0.0:{}", config.server.port);
     let result = server.run().await;
 
     // Shutdown tracing
