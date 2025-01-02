@@ -1,224 +1,172 @@
-# LotaBots AI Gateway
+# LotaBots Platform
 
-Enterprise-grade AI agent platform with integrated AIOps and DevOps automation.
+A secure, scalable, and enterprise-ready AI platform built with Rust and modern cloud-native technologies.
 
-## Table of Contents
+## Project Structure
 
-- [LotaBots AI Gateway](#lotabots-ai-gateway)
-  - [Table of Contents](#table-of-contents)
-  - [Project Description](#project-description)
-  - [Features](#features)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Configuration](#configuration)
-  - [Deployment](#deployment)
-  - [Development](#development)
-  - [Monitoring](#monitoring)
-  - [Troubleshooting](#troubleshooting)
-  - [Contributing](#contributing)
-  - [License](#license)
-
-## Project Description
-
-LotaBots AI Gateway is an enterprise-grade AI agent platform that provides secure, scalable, and reliable AI services. It includes built-in AIOps capabilities and DevOps automation for seamless deployment and operation.
-
-## Features
-
-- Secure attestation service for AI agent verification
-- API Gateway with rate limiting and authentication
-- Kubernetes-native deployment
-- Integrated monitoring and tracing
-- Automated scaling and failover
-- Database migrations and management
-- Comprehensive logging and metrics
+```
+lotabots/
+├── services/               # Microservices
+│   ├── api-gateway/       # API Gateway & Request Router
+│   ├── user-management/   # User & Tenant Management
+│   ├── inference-service/ # AI Model Inference
+│   └── attestation-service/ # Security Attestation
+├── common/                # Shared Libraries
+│   ├── middleware/        # Common Middleware
+│   ├── auth/             # Authentication
+│   └── types/            # Shared Types
+├── infrastructure/        # Infrastructure Code
+│   ├── k8s/              # Kubernetes Manifests
+│   ├── helm/             # Helm Charts
+│   └── terraform/        # Terraform Configurations
+└── tests/                # Testing
+    ├── unit/             # Unit Tests
+    ├── integration/      # Integration Tests
+    └── e2e/              # End-to-End Tests
+```
 
 ## Prerequisites
 
-- Rust 1.55 or later
-- Docker 20.10 or later
-- Kubernetes 1.21 or later
-- PostgreSQL 13 or later
-- Redis 6 or later
-- Vault for secrets management
-- GitHub account with permissions to create packages
+- Rust 1.70+ (with cargo)
+- Docker 24.0+
+- Kubernetes 1.25+
+- GPU Support (NVIDIA drivers & CUDA toolkit)
 
-## Initial Setup
+## Quick Start
 
-### 1. GitHub Container Registry Setup
+1. **Setup Development Environment**
 
-1. Create a Personal Access Token (PAT) with `read:packages` and `write:packages` scopes:
+   ```bash
+   # Clone the repository
+   git clone https://github.com/lotabots/platform.git
+   cd platform
 
-   - Go to GitHub Settings → Developer settings → Personal access tokens
-   - Click "Generate new token"
-   - Select the required scopes
-   - Copy the generated token
+   # Install dependencies
+   cargo build
+   ```
 
-2. Configure GitHub Actions secrets:
+2. **Run Services Locally**
 
-   - Go to your repository settings
-   - Navigate to "Secrets and variables" → "Actions"
-   - Add the following secrets:
-     - `KUBECONFIG`: Your Kubernetes cluster configuration
-     - `GITHUB_TOKEN`: Will be automatically available
-     - `DOCKER_USERNAME`: Your GitHub username
-     - `DOCKER_PASSWORD`: Your GitHub PAT from step 1
+   ```bash
+   # Start all services
+   docker-compose up
 
-3. Enable GitHub Container Registry:
-   - Go to your repository settings
-   - Navigate to "Packages"
-   - Ensure the Container registry is enabled
+   # Or run individual services
+   cd services/api-gateway
+   cargo run
+   ```
 
-## Installation
+3. **Run Tests**
 
-1. Clone the repository:
+   ```bash
+   # Run all tests
+   cargo test
 
-```bash
-git clone https://github.com/your-org/lotabots.git
-cd lotabots
-```
+   # Run specific service tests
+   cargo test -p api-gateway
+   ```
 
-2. Run the automated setup script:
+## Service Documentation
 
-```bash
-chmod +x setup.sh
-sudo ./setup.sh
-```
+### API Gateway
 
-This will:
+- Main entry point for all API requests
+- Handles authentication, rate limiting, and request routing
+- [API Gateway Documentation](services/api-gateway/README.md)
 
-- Install all required dependencies
-- Configure the environment
-- Set up the database
-- Prepare for deployment
+### User Management
 
-## Configuration
+- Manages users, tenants, and permissions
+- Handles authentication and authorization
+- [User Management Documentation](services/user-management/README.md)
 
-The platform can be configured through:
+### Inference Service
 
-1. Environment variables (see `.env` file)
-2. Kubernetes ConfigMaps and Secrets
-3. Vault for sensitive information
+- Handles AI model inference requests
+- GPU resource management and optimization
+- [Inference Service Documentation](services/inference-service/README.md)
 
-Key configuration files:
+### Attestation Service
 
-- `.env` - Local development configuration
-- `k8s/common/configmap.yaml` - Shared Kubernetes configuration
-- `k8s/*/deployment.yaml` - Service-specific configuration
+- Provides security attestation for AI models
+- Manages model verification and validation
+- [Attestation Service Documentation](services/attestation-service/README.md)
+
+## Development Guidelines
+
+### Code Style
+
+- Follow Rust style guidelines
+- Use `cargo fmt` for formatting
+- Run `cargo clippy` for linting
+
+### Git Workflow
+
+1. Create feature branch from `main`
+2. Make changes and commit
+3. Run tests locally
+4. Create pull request
+5. Wait for CI checks and review
+6. Merge to `main`
+
+### Testing Requirements
+
+- Unit tests for all new code
+- Integration tests for API endpoints
+- E2E tests for critical flows
+- Minimum 80% test coverage
 
 ## Deployment
 
 ### Local Development
 
-1. Start the services locally:
-
 ```bash
-cargo run
+docker-compose up
 ```
 
-### Kubernetes Deployment
-
-1. Configure your Kubernetes cluster:
+### Kubernetes
 
 ```bash
-kubectl config use-context your-cluster
+# Deploy using Helm
+cd infrastructure/helm
+helm install lotabots ./lotabots-chart
+
+# Or using kubectl
+kubectl apply -f infrastructure/k8s/
 ```
 
-2. Deploy using the provided script:
+### Production Deployment
 
-```bash
-./scripts/deploy.sh
-```
+See [Deployment Guide](docs/deployment.md) for detailed instructions.
 
-The deployment script will:
+## Monitoring & Observability
 
-- Build and push Docker images
-- Apply Kubernetes manifests
-- Verify the deployment
-- Set up monitoring
+- Prometheus metrics exposed on `/metrics`
+- Grafana dashboards in `infrastructure/monitoring`
+- Distributed tracing with Jaeger
+- Structured logging with JSON format
 
-### Manual Deployment Steps
+## Security
 
-1. Build the Docker images:
-
-```bash
-docker build -t ghcr.io/lotabots/attestation:latest -f src/attestation/Dockerfile .
-docker build -t ghcr.io/lotabots/api_gateway:latest -f src/api_gateway/Dockerfile .
-```
-
-2. Push the images:
-
-```bash
-docker push ghcr.io/lotabots/attestation:latest
-docker push ghcr.io/lotabots/api_gateway:latest
-```
-
-3. Apply Kubernetes manifests:
-
-```bash
-kubectl apply -f k8s/common/
-kubectl apply -f k8s/attestation/
-kubectl apply -f k8s/api_gateway/
-```
-
-## Development
-
-1. Install development dependencies:
-
-```bash
-cargo install sqlx-cli
-cargo install cargo-watch
-```
-
-2. Run tests:
-
-```bash
-cargo test
-```
-
-3. Start development server:
-
-```bash
-cargo watch -x run
-```
-
-## Monitoring
-
-The platform includes:
-
-- OpenTelemetry integration
-- Prometheus metrics
-- Kubernetes health probes
-- Structured logging
-
-Access monitoring:
-
-1. Metrics: `http://api-gateway/metrics`
-2. Health: `http://api-gateway/health`
-3. Kubernetes dashboard for pod status
-
-## Troubleshooting
-
-Common issues and solutions:
-
-1. Database connection issues:
-
-   - Check PostgreSQL is running
-   - Verify connection string in `.env`
-   - Ensure database migrations are applied
-
-2. Kubernetes deployment issues:
-   - Check pod logs: `kubectl logs -f -l app=lotabots`
-   - Verify secrets: `kubectl get secrets -n lotabots`
-   - Check service status: `kubectl get services -n lotabots`
+- All endpoints require authentication
+- JWT-based authorization
+- Rate limiting enabled
+- Regular security audits
+- See [Security Policy](SECURITY.md)
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+1. Read [Contributing Guidelines](CONTRIBUTING.md)
+2. Fork the repository
+3. Create feature branch
+4. Make changes
+5. Create pull request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+[License details here]
+
+## Support
+
+- [Issue Tracker](https://github.com/lotabots/platform/issues)
+- [Documentation](docs/)

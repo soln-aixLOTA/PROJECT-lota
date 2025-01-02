@@ -1,0 +1,34 @@
+# Server configuration
+host: "127.0.0.1"
+port: 8081
+
+# Database configuration
+database_url: "postgres://postgres:postgres@localhost:5432/lotabots"
+
+# Redis configuration
+redis_url: "redis://localhost:6379"
+
+# JWT configuration
+jwt_secret: "your-secret-key-here"  # Change this in production
+jwt_expiration: 3600  # 1 hour in seconds
+
+# Environment
+environment: "development"
+log_level: "info"
+
+# Rate limiting
+rate_limit:
+  requests_per_second: 100
+  burst_size: 50
+
+# Security
+password:
+  min_length: 8
+  require_numbers: true
+  require_special_chars: true
+  require_uppercase: true
+
+# Feature flags
+features:
+  mfa_enabled: false
+  audit_logging: true 

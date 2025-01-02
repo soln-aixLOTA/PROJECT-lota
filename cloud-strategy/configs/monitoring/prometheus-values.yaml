@@ -1,0 +1,81 @@
+server:
+  global:
+    scrape_interval: 15s
+    evaluation_interval: 15s
+
+  persistentVolume:
+    enabled: true
+    size: 8Gi
+
+  retention: 15d
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+
+  service:
+    type: ClusterIP
+
+alertmanager:
+  enabled: true
+  persistentVolume:
+    enabled: true
+    size: 2Gi
+
+  config:
+    global:
+      resolve_timeout: 5m
+
+    route:
+      group_by: ['alertname', 'job']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'default-receiver'
+      routes:
+      - match:
+          severity: critical
+        receiver: 'critical-receiver'
+
+    receivers:
+    - name: 'default-receiver'
+      # Configure your receivers (e.g., email, slack, etc.)
+    - name: 'critical-receiver'
+      # Configure critical alert receivers
+
+pushgateway:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+serviceAccounts:
+  server:
+    create: true
+    annotations: {}
+  alertmanager:
+    create: true
+    annotations: {}
+  pushgateway:
+    create: true
+    annotations: {}
+  nodeExporter:
+    create: true
+    annotations: {}
+
+rbac:
+  create: true
+
+networkPolicy:
+  enabled: true 

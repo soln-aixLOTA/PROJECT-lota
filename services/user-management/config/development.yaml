@@ -1,0 +1,36 @@
+# Override base configuration for development
+
+# Server configuration
+host: "127.0.0.1"
+port: 8081
+
+# Database configuration
+database_url: "postgres://postgres:postgres@localhost:5432/lotabots_dev"
+
+# Redis configuration
+redis_url: "redis://localhost:6379/0"
+
+# JWT configuration
+jwt_secret: "development-secret-key"
+jwt_expiration: 86400  # 24 hours in seconds for development
+
+# Environment
+environment: "development"
+log_level: "debug"
+
+# Rate limiting - more permissive for development
+rate_limit:
+  requests_per_second: 1000
+  burst_size: 100
+
+# Security - relaxed for development
+password:
+  min_length: 6
+  require_numbers: false
+  require_special_chars: false
+  require_uppercase: false
+
+# Feature flags
+features:
+  mfa_enabled: false
+  audit_logging: true 

@@ -1,0 +1,91 @@
+replicas: 1
+
+image:
+  repository: grafana/grafana
+  tag: latest
+
+persistence:
+  enabled: true
+  size: 10Gi
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+securityContext:
+  runAsUser: 472
+  runAsGroup: 472
+  fsGroup: 472
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  # Configure ingress settings based on your environment
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      url: http://prometheus-server
+      access: proxy
+      isDefault: true
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+    - name: 'default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards/default
+
+dashboards:
+  default:
+    node-exporter:
+      gnetId: 1860
+      revision: 23
+      datasource: Prometheus
+    kubernetes-cluster:
+      gnetId: 7249
+      revision: 1
+      datasource: Prometheus
+
+adminUser: admin
+# adminPassword should be set via secrets management
+
+smtp:
+  enabled: false
+  # Configure SMTP settings for alerts
+
+plugins:
+  - grafana-piechart-panel
+  - grafana-worldmap-panel
+
+env:
+  GF_SECURITY_ALLOW_EMBEDDING: "true"
+  GF_AUTH_ANONYMOUS_ENABLED: "false"
+
+rbac:
+  create: true
+  pspEnabled: false
+  namespaced: false
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+networkPolicy:
+  enabled: true 

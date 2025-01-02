@@ -1,133 +1,106 @@
-# Dependencies
-/node_modules
-/.pnp
-.pnp.js
-vendor/
-
-# Environment files
-.env
-.env.*
-!.env.example
-.env*.local
-.env.*.local
-
-# Sensitive files
-*.[jJ][sS][oO][nN]
-!package.json
-!package-lock.json
-!tsconfig.json
-!jsconfig.json
-!composer.json
-!*.example.json
-!*.template.json
-*.key
-*.pem
-*.crt
-*.pfx
-*.p12
-*.tok
-*[kK]ey*
-*[tT]oken*
-*[sS]ecret*
-*[cC]redential*
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.pytest_cache/
-*.egg-info/
-dist/
-build/
-.eggs/
-.tox/
-.coverage
-htmlcov/
-.python-version
-
-# NGC CLI specific
-ngc-cli/**/__pycache__/
-ngc-cli/**/*.py[cod]
-ngc-cli/**/*.so
-ngc-cli/**/*.dylib
-ngc-cli/opentelemetry/**/__pycache__/
-ngc-cli/lib-dynload/
-ngccli_linux.zip
-
-# Rust
+# Rust specific
 /target/
-**/target/
 **/*.rs.bk
+*.pdb
 Cargo.lock
 
-# Build and binary files
-/build
-/dist
-*.exe
-*.bin
-*.so
-*.dll
-*.dylib
-*.o
-*.a
-*.lib
-*.out
-cloud_sql_proxy*
-
-# Logs and temporary files
-*.log
-logs/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-*.tmp
-*.temp
-*.swp
-*.swo
-*~
-
-# IDE and editor files
+# IDE specific
 .idea/
 .vscode/
-*.sublime-*
-*.iml
-.project
-.classpath
-.settings/
-*.code-workspace
-.history/
-
-# OS generated files
+*.swp
+*.swo
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+.env
 
-# Database files
+# Build artifacts
+/dist/
+/build/
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Debug artifacts
+*.dSYM/
+
+# Dependencies
+/node_modules/
+
+# Database
 *.db
+*.db-*
 *.sqlite
 *.sqlite3
 
-# Next.js
-/.next/
-/out/
-.vercel
-*.tsbuildinfo
-next-env.d.ts
+# Logs and temporary files
+*.log
+*.tmp
+tmp/
+log/
+logs/
 
-# Testing and coverage
-/coverage
+# Environment files
+.env*
+!.env.example
+
+# Docker volumes
+docker/volumes/
+volumes/
+
+# Test coverage
+coverage/
 .nyc_output/
+target/coverage/
 
-# Documentation
+# Generated documentation
+/doc/
 /docs/_build/
-/site/
 
-# Misc project specific
-Guest_Drivers/
-api-gateway/target/
+# SQLx offline data
+.sqlx/
 
-.codegpt
+# Kubernetes secrets
+*-secret.yaml
+*-secrets.yaml
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.priv
+
+# Cache directories
+.cache/
+.npm/
+.cargo/
+
+# Python virtual environments (if using Python scripts)
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux specific
+*~
+.directory
+
+# Project specific
+uploads/
+prompt-history/
+.codegpt/
+.dist/
+.swc/
+.next/

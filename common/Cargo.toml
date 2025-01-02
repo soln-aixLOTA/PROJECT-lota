@@ -1,14 +1,27 @@
 [package]
-name = "lotabots-common"
+name = "common"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-thiserror = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Workspace dependencies
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+
+# Common-specific dependencies
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
 jsonwebtoken = "8.1"
-uuid = { version = "1.0", features = ["v4"] }
-validator = "0.14"
-prometheus = "0.13"
+redis = { version = "0.23", features = ["tokio-comp"] }
+config = "0.13"
+
+[dev-dependencies]
+mockall = "0.11"
+tokio-test = "0.4"
