@@ -1,0 +1,182 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  RUSTFLAGS: "-D warnings"
+  RUST_LOG: debug
+
+jobs:
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lotabots_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl pkg-config libssl-dev
+
+      - name: Checkout code
+        run: |
+          git clone https://github.com/${{ github.repository }}.git .
+          git checkout ${{ github.sha }}
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source "$HOME/.cargo/env"
+          rustup component add llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        run: |
+          curl -LsSf https://github.com/taiki-e/cargo-llvm-cov/releases/latest/download/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz | tar xzf - -C ~/.cargo/bin
+
+      - name: Run unit tests with coverage
+        run: |
+          source "$HOME/.cargo/env"
+          cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/lotabots_test
+          REDIS_URL: redis://localhost:6379/0
+
+      - name: Upload coverage to Codecov
+        run: |
+          curl -Os https://uploader.codecov.io/latest/linux/codecov
+          chmod +x codecov
+          ./codecov -f lcov.info
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lotabots_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl pkg-config libssl-dev
+
+      - name: Checkout code
+        run: |
+          git clone https://github.com/${{ github.repository }}.git .
+          git checkout ${{ github.sha }}
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source "$HOME/.cargo/env"
+
+      - name: Run integration tests
+        run: |
+          source "$HOME/.cargo/env"
+          cargo test --test '*' --all-features
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/lotabots_test
+          REDIS_URL: redis://localhost:6379/0
+          TEST_LOG: true
+
+  doc-test:
+    name: Documentation Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl pkg-config libssl-dev
+
+      - name: Checkout code
+        run: |
+          git clone https://github.com/${{ github.repository }}.git .
+          git checkout ${{ github.sha }}
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source "$HOME/.cargo/env"
+
+      - name: Run documentation tests
+        run: |
+          source "$HOME/.cargo/env"
+          cargo test --doc --all-features
+
+  notify:
+    name: Notify Test Results
+    needs: [unit-test, integration-test, doc-test]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Install curl
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - name: Notify success
+        if: ${{ needs.unit-test.result == 'success' && needs.integration-test.result == 'success' && needs.doc-test.result == 'success' }}
+        run: |
+          curl -X POST -H "Content-type: application/json" \
+               -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+               -d "{\"channel\":\"${{ secrets.SLACK_CHANNEL_ID }}\",\"text\":\"✅ All tests passed successfully!\"}" \
+               https://slack.com/api/chat.postMessage
+
+      - name: Notify failure
+        if: ${{ needs.unit-test.result == 'failure' || needs.integration-test.result == 'failure' || needs.doc-test.result == 'failure' }}
+        run: |
+          curl -X POST -H "Content-type: application/json" \
+               -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+               -d "{\"channel\":\"${{ secrets.SLACK_CHANNEL_ID }}\",\"text\":\"❌ Some tests failed! Please check the workflow results.\"}" \
+               https://slack.com/api/chat.postMessage
