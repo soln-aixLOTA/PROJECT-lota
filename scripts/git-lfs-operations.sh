@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Git LFS Operations Script
-# Handles rebasing, committing, and fetching with Git LFS
+# Handles rebasing, committing, fetching, and large file management
 
 set -e
 
@@ -105,14 +105,129 @@ rebase_lfs() {
     fi
 }
 
+# Function to clean up large files
+cleanup_large_files() {
+    echo -e "\n${BLUE}Large File Cleanup${NC}"
+    echo "===================="
+
+    # Check for large files
+    echo -e "\n${GREEN}Checking for large files (>100MB)...${NC}"
+    large_files=$(find . -type f -size +100M ! -path "./.git/*" ! -path "*/.terraform/*")
+
+    if [ -n "$large_files" ]; then
+        echo -e "${YELLOW}Found large files:${NC}"
+        echo "$large_files"
+        
+        echo -e "\n${YELLOW}Would you like to:"
+        echo "1. Move files to Git LFS"
+        echo "2. Add to .gitignore"
+        echo "3. Remove files from repository"
+        echo "4. Cancel"
+        echo -e "Choose an option (1-4):${NC}"
+        read -r option
+
+        case "$option" in
+            1)
+                echo -e "\n${GREEN}Moving files to Git LFS...${NC}"
+                for file in $large_files; do
+                    # Get file extension
+                    ext="${file##*.}"
+                    # Add to Git LFS
+                    git lfs track "*.$ext"
+                    git add .gitattributes
+                    git add "$file"
+                done
+                git commit -m "Move large files to Git LFS"
+                ;;
+            2)
+                echo -e "\n${GREEN}Adding to .gitignore...${NC}"
+                for file in $large_files; do
+                    echo "$file" >> .gitignore
+                done
+                git add .gitignore
+                git commit -m "Add large files to .gitignore"
+                ;;
+            3)
+                echo -e "\n${GREEN}Removing files from repository...${NC}"
+                for file in $large_files; do
+                    git rm --cached "$file"
+                done
+                git commit -m "Remove large files from repository"
+                ;;
+            4)
+                echo -e "${YELLOW}Cleanup cancelled${NC}"
+                ;;
+            *)
+                echo -e "${RED}Invalid option${NC}"
+                ;;
+        esac
+    else
+        echo -e "${GREEN}No large files found${NC}"
+    fi
+}
+
+# Function to configure Terraform
+configure_terraform() {
+    echo -e "\n${BLUE}Terraform Configuration${NC}"
+    echo "======================"
+
+    # Add Terraform-specific entries to .gitignore
+    echo -e "\n${GREEN}Adding Terraform entries to .gitignore...${NC}"
+    cat << EOF >> .gitignore
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+EOF
+
+    # Add Terraform provider patterns to Git LFS
+    echo -e "\n${GREEN}Configuring Git LFS for Terraform providers...${NC}"
+    git lfs track "*.terraform-provider-*"
+    
+    # Remove any existing .terraform directories from Git
+    if [ -d ".terraform" ]; then
+        echo -e "\n${YELLOW}Found .terraform directory. Remove from Git? (y/N)${NC}"
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            git rm -rf --cached .terraform/
+            rm -rf .terraform/
+            echo -e "${GREEN}Removed .terraform directory${NC}"
+        fi
+    fi
+
+    # Commit changes
+    echo -e "\n${YELLOW}Commit these changes? (y/N)${NC}"
+    read -r response
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+        git add .gitignore .gitattributes
+        git commit -m "Configure Terraform files and Git LFS"
+        echo -e "${GREEN}Changes committed successfully${NC}"
+    else
+        echo -e "${YELLOW}Changes not committed${NC}"
+    fi
+}
+
 # Main menu
 show_menu() {
     echo -e "\n${BLUE}Available Operations:${NC}"
     echo "1. Fetch LFS objects"
     echo "2. Commit changes"
     echo "3. Rebase branch"
-    echo "4. Exit"
-    echo -e "${YELLOW}Choose an operation (1-4):${NC}"
+    echo "4. Clean up large files"
+    echo "5. Configure Terraform"
+    echo "6. Exit"
+    echo -e "${YELLOW}Choose an operation (1-6):${NC}"
 }
 
 # Check Git LFS installation
@@ -130,9 +245,15 @@ if [ $# -gt 0 ]; then
         "rebase")
             rebase_lfs "$2"
             ;;
+        "cleanup")
+            cleanup_large_files
+            ;;
+        "terraform")
+            configure_terraform
+            ;;
         *)
             echo -e "${RED}Unknown operation: $1${NC}"
-            echo "Usage: $0 [fetch|commit|rebase] [args]"
+            echo "Usage: $0 [fetch|commit|rebase|cleanup|terraform] [args]"
             exit 1
             ;;
     esac
@@ -154,6 +275,12 @@ while true; do
             rebase_lfs
             ;;
         4)
+            cleanup_large_files
+            ;;
+        5)
+            configure_terraform
+            ;;
+        6)
             echo -e "${GREEN}Goodbye!${NC}"
             exit 0
             ;;
