@@ -153,3 +153,4 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+cloud-strategy/configs/terraform/.terraform/
