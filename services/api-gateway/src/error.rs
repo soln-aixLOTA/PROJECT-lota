@@ -1,262 +1,186 @@
+use actix_web::{
+    error::ResponseError,
+    http::{header::ContentType, StatusCode},
+    HttpResponse,
+};
+use derive_more::{Display, Error};
+use serde::Serialize;
+use serde_json::json;
 use std::fmt;
-use std::error::Error;
-use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
-use tracing::{error, warn};
-use uuid::Uuid;
+use tracing::error;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ApiError {
-    pub code: ErrorCode,
+#[derive(Debug, Display, Error)]
+pub enum ApiError {
+    #[display(fmt = "Authentication error: {}", _0)]
+    AuthenticationError(String),
+
+    #[display(fmt = "Authorization error: {}", _0)]
+    AuthorizationError(String),
+
+    #[display(fmt = "Validation error: {}", _0)]
+    ValidationError(String),
+
+    #[display(fmt = "Rate limit error: {}", _0)]
+    RateLimitError(String),
+
+    #[display(fmt = "Internal server error")]
+    InternalServerError,
+
+    #[display(fmt = "Bad request: {}", _0)]
+    BadRequest(String),
+
+    #[display(fmt = "Not found: {}", _0)]
+    NotFound(String),
+
+    #[display(fmt = "Service error: {}", _0)]
+    ServiceError(String),
+
+    #[display(fmt = "Database error: {}", _0)]
+    DatabaseError(String),
+
+    #[display(fmt = "External service error: {}", _0)]
+    ExternalServiceError(String),
+}
+
+#[derive(Debug, Serialize)]
+pub struct ErrorResponse {
+    pub error: String,
     pub message: String,
-    pub request_id: Uuid,
-    pub timestamp: DateTime<Utc>,
-    pub details: Option<ErrorDetails>,
-    pub retry_after: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum ErrorCode {
-    // Client Errors (4xx)
-    BadRequest,
-    Unauthorized,
-    Forbidden,
-    NotFound,
-    MethodNotAllowed,
-    RequestTimeout,
-    TooManyRequests,
-    PayloadTooLarge,
-    
-    // Server Errors (5xx)
-    InternalError,
-    ServiceUnavailable,
-    GatewayTimeout,
-    WorkerError,
-    DatabaseError,
-    ValidationError,
-    ConfigurationError,
-    
-    // Integration Errors
-    UpstreamServiceError,
-    CircuitBreakerOpen,
-    RateLimitExceeded,
-    
-    // Resource Errors
-    ResourceExhausted,
-    ResourceNotAvailable,
-    ResourceConflict,
-    
-    // Security Errors
-    AuthenticationFailed,
-    TokenExpired,
-    InvalidCredentials,
-    
-    // Data Errors
-    DataNotFound,
-    DataValidationFailed,
-    DataCorrupted,
-    
-    // Worker Pool Errors
-    WorkerPoolFull,
-    WorkerNotResponding,
-    WorkerCrashed,
-}
+impl ResponseError for ApiError {
+    fn error_response(&self) -> HttpResponse {
+        let status_code = self.status_code();
+        let error_response = ErrorResponse {
+            error: self.error_type(),
+            message: self.to_string(),
+            details: self.error_details(),
+        };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ErrorDetails {
-    pub error_type: String,
-    pub source: Option<String>,
-    pub stack_trace: Option<String>,
-    pub correlation_id: Option<String>,
-    pub metadata: Option<serde_json::Value>,
+        error!(
+            error.type = %error_response.error,
+            error.message = %error_response.message,
+            error.status_code = %status_code.as_u16(),
+            "API error occurred"
+        );
+
+        HttpResponse::build(status_code)
+            .insert_header(ContentType::json())
+            .json(error_response)
+    }
+
+    fn status_code(&self) -> StatusCode {
+        match self {
+            ApiError::AuthenticationError(_) => StatusCode::UNAUTHORIZED,
+            ApiError::AuthorizationError(_) => StatusCode::FORBIDDEN,
+            ApiError::ValidationError(_) => StatusCode::BAD_REQUEST,
+            ApiError::RateLimitError(_) => StatusCode::TOO_MANY_REQUESTS,
+            ApiError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            ApiError::NotFound(_) => StatusCode::NOT_FOUND,
+            ApiError::ServiceError(_) => StatusCode::SERVICE_UNAVAILABLE,
+            ApiError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::ExternalServiceError(_) => StatusCode::BAD_GATEWAY,
+        }
+    }
 }
 
 impl ApiError {
-    pub fn new(code: ErrorCode, message: String) -> Self {
-        Self {
-            code,
-            message,
-            request_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            details: None,
-            retry_after: None,
+    fn error_type(&self) -> String {
+        match self {
+            ApiError::AuthenticationError(_) => "authentication_error",
+            ApiError::AuthorizationError(_) => "authorization_error",
+            ApiError::ValidationError(_) => "validation_error",
+            ApiError::RateLimitError(_) => "rate_limit_error",
+            ApiError::InternalServerError => "internal_server_error",
+            ApiError::BadRequest(_) => "bad_request",
+            ApiError::NotFound(_) => "not_found",
+            ApiError::ServiceError(_) => "service_error",
+            ApiError::DatabaseError(_) => "database_error",
+            ApiError::ExternalServiceError(_) => "external_service_error",
         }
+        .to_string()
     }
-    
-    pub fn with_details(mut self, details: ErrorDetails) -> Self {
-        self.details = Some(details);
-        self
-    }
-    
-    pub fn with_retry_after(mut self, seconds: u64) -> Self {
-        self.retry_after = Some(seconds);
-        self
-    }
-    
-    pub fn log(&self) {
-        match self.code {
-            ErrorCode::InternalError | 
-            ErrorCode::ServiceUnavailable |
-            ErrorCode::DatabaseError |
-            ErrorCode::WorkerCrashed => {
-                error!(
-                    request_id = %self.request_id,
-                    error_code = ?self.code,
-                    error_message = %self.message,
-                    error_details = ?self.details,
-                    "Critical error occurred"
-                );
-            }
-            ErrorCode::TooManyRequests |
-            ErrorCode::CircuitBreakerOpen |
-            ErrorCode::ResourceExhausted => {
-                warn!(
-                    request_id = %self.request_id,
-                    error_code = ?self.code,
-                    error_message = %self.message,
-                    retry_after = ?self.retry_after,
-                    "Resource limit reached"
-                );
-            }
-            _ => {
-                warn!(
-                    request_id = %self.request_id,
-                    error_code = ?self.code,
-                    error_message = %self.message,
-                    "Error occurred"
-                );
-            }
-        }
-    }
-    
-    pub fn status_code(&self) -> u16 {
-        match self.code {
-            ErrorCode::BadRequest => 400,
-            ErrorCode::Unauthorized => 401,
-            ErrorCode::Forbidden => 403,
-            ErrorCode::NotFound => 404,
-            ErrorCode::MethodNotAllowed => 405,
-            ErrorCode::RequestTimeout => 408,
-            ErrorCode::TooManyRequests => 429,
-            ErrorCode::PayloadTooLarge => 413,
-            ErrorCode::InternalError => 500,
-            ErrorCode::ServiceUnavailable => 503,
-            ErrorCode::GatewayTimeout => 504,
-            _ => 500,
+
+    fn error_details(&self) -> Option<serde_json::Value> {
+        match self {
+            ApiError::ValidationError(msg) => Some(json!({
+                "validation_errors": [msg]
+            })),
+            ApiError::RateLimitError(msg) => Some(json!({
+                "retry_after": 60, // Example value
+                "limit_info": msg
+            })),
+            ApiError::ServiceError(msg) => Some(json!({
+                "service_info": msg
+            })),
+            ApiError::ExternalServiceError(msg) => Some(json!({
+                "service_info": msg
+            })),
+            _ => None,
         }
     }
 }
 
-impl std::error::Error for ApiError {}
+impl From<sqlx::Error> for ApiError {
+    fn from(error: sqlx::Error) -> Self {
+        error!(?error, "Database error occurred");
+        ApiError::DatabaseError(error.to_string())
+    }
+}
 
-impl fmt::Display for ApiError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Error({}): {} [Request-ID: {}]",
-            self.code as u16,
-            self.message,
-            self.request_id
-        )
+impl From<reqwest::Error> for ApiError {
+    fn from(error: reqwest::Error) -> Self {
+        error!(?error, "External service error occurred");
+        ApiError::ExternalServiceError(error.to_string())
     }
 }
 
 impl From<std::io::Error> for ApiError {
-    fn from(err: std::io::Error) -> Self {
-        Self::new(
-            ErrorCode::InternalError,
-            format!("IO error: {}", err),
-        ).with_details(ErrorDetails {
-            error_type: "IoError".to_string(),
-            source: Some(err.to_string()),
-            stack_trace: None,
-            correlation_id: None,
-            metadata: None,
-        })
-    }
-}
-
-impl From<tokio::task::JoinError> for ApiError {
-    fn from(err: tokio::task::JoinError) -> Self {
-        Self::new(
-            ErrorCode::WorkerCrashed,
-            format!("Worker task failed: {}", err),
-        ).with_details(ErrorDetails {
-            error_type: "WorkerError".to_string(),
-            source: Some(err.to_string()),
-            stack_trace: None,
-            correlation_id: None,
-            metadata: None,
-        })
+    fn from(error: std::io::Error) -> Self {
+        error!(?error, "IO error occurred");
+        ApiError::InternalServerError
     }
 }
 
 impl From<serde_json::Error> for ApiError {
-    fn from(err: serde_json::Error) -> Self {
-        Self::new(
-            ErrorCode::DataValidationFailed,
-            format!("JSON error: {}", err),
-        ).with_details(ErrorDetails {
-            error_type: "JsonError".to_string(),
-            source: Some(err.to_string()),
-            stack_trace: None,
-            correlation_id: None,
-            metadata: None,
-        })
+    fn from(error: serde_json::Error) -> Self {
+        error!(?error, "JSON serialization error occurred");
+        ApiError::BadRequest(error.to_string())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+    use actix_web::test;
+
     #[test]
-    fn test_api_error_creation() {
-        let error = ApiError::new(
-            ErrorCode::BadRequest,
-            "Invalid input".to_string(),
-        );
-        
-        assert_eq!(error.code, ErrorCode::BadRequest);
-        assert_eq!(error.message, "Invalid input");
-        assert_eq!(error.status_code(), 400);
-        assert!(error.details.is_none());
-        assert!(error.retry_after.is_none());
+    fn test_error_response() {
+        let error = ApiError::ValidationError("Invalid input".to_string());
+        let resp = error.error_response();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+        let error = ApiError::AuthenticationError("Invalid token".to_string());
+        let resp = error.error_response();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+
+        let error = ApiError::RateLimitError("Too many requests".to_string());
+        let resp = error.error_response();
+        assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
     }
-    
+
     #[test]
-    fn test_api_error_with_details() {
-        let details = ErrorDetails {
-            error_type: "ValidationError".to_string(),
-            source: Some("test".to_string()),
-            stack_trace: None,
-            correlation_id: Some("test-123".to_string()),
-            metadata: None,
-        };
-        
-        let error = ApiError::new(
-            ErrorCode::ValidationError,
-            "Validation failed".to_string(),
-        ).with_details(details.clone());
-        
-        assert_eq!(error.code, ErrorCode::ValidationError);
-        assert!(error.details.is_some());
-        let error_details = error.details.unwrap();
-        assert_eq!(error_details.error_type, "ValidationError");
-        assert_eq!(error_details.source, Some("test".to_string()));
-        assert_eq!(error_details.correlation_id, Some("test-123".to_string()));
-    }
-    
-    #[test]
-    fn test_api_error_with_retry_after() {
-        let error = ApiError::new(
-            ErrorCode::TooManyRequests,
-            "Rate limit exceeded".to_string(),
-        ).with_retry_after(60);
-        
-        assert_eq!(error.code, ErrorCode::TooManyRequests);
-        assert_eq!(error.retry_after, Some(60));
-        assert_eq!(error.status_code(), 429);
+    fn test_error_conversion() {
+        let io_error = std::io::Error::new(std::io::ErrorKind::Other, "IO error");
+        let api_error: ApiError = io_error.into();
+        assert!(matches!(api_error, ApiError::InternalServerError));
+
+        let json_error =
+            serde_json::Error::syntax(serde_json::error::ErrorCode::ExpectedColon, 0, 0);
+        let api_error: ApiError = json_error.into();
+        assert!(matches!(api_error, ApiError::BadRequest(_)));
     }
 }

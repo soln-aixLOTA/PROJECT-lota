@@ -1,125 +1,108 @@
-use std::future::{ready, Ready};
-use std::sync::Arc;
-use async_trait::async_trait;
-use serde::Deserialize;
-use thiserror::Error;
-use tracing::{error, info, warn};
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
-#[derive(Debug, Error)]
-pub enum MiddlewareError {
-    #[error("Authentication failed: {0}")]
-    AuthenticationError(String),
-    #[error("Rate limit exceeded")]
-    RateLimitExceeded,
-    #[error("Invalid tenant")]
-    InvalidTenant,
-    #[error("Internal error: {0}")]
-    Internal(String),
-}
+use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform};
+use actix_web::Error;
+use tracing::{error, info};
 
-#[async_trait]
-pub trait Middleware: Send + Sync + 'static {
-    async fn process(&self, ctx: &mut Context) -> Result<(), MiddlewareError>;
-}
+pub struct Logger;
 
-pub struct Context {
-    pub tenant_id: Option<String>,
-    pub user_id: Option<String>,
-    pub request_id: String,
-    pub path: String,
-    pub method: String,
-}
-
-impl Context {
-    pub fn new(path: String, method: String) -> Self {
-        Self {
-            tenant_id: None,
-            user_id: None,
-            request_id: uuid::Uuid::new_v4().to_string(),
-            path,
-            method,
-        }
+impl Logger {
+    pub fn new() -> Self {
+        Logger
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct RateLimitConfig {
-    pub requests_per_second: u32,
-    pub burst_size: u32,
-}
+impl<S, B> Transform<S, ServiceRequest> for Logger
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = Error;
+    type InitError = ();
+    type Transform = LoggerMiddleware<S>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Transform, Self::InitError>>>>;
 
-pub struct RateLimitMiddleware {
-    config: Arc<RateLimitConfig>,
-}
-
-impl RateLimitMiddleware {
-    pub fn new(config: Arc<RateLimitConfig>) -> Self {
-        Self { config }
+    fn new_transform(&self, service: S) -> Self::Future {
+        Box::pin(async move { Ok(LoggerMiddleware { service }) })
     }
 }
 
-#[async_trait]
-impl Middleware for RateLimitMiddleware {
-    async fn process(&self, ctx: &mut Context) -> Result<(), MiddlewareError> {
-        // Implement rate limiting logic here
-        // This is a placeholder implementation
-        info!(
-            request_id = %ctx.request_id,
-            path = %ctx.path,
-            "Rate limit check passed"
-        );
-        Ok(())
+pub struct LoggerMiddleware<S> {
+    service: S,
+}
+
+impl<S, B> Service<ServiceRequest> for LoggerMiddleware<S>
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+
+    fn poll_ready(&self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.service.poll_ready(cx)
     }
-}
 
-pub struct LoggingMiddleware {
-    log_level: tracing::Level,
-}
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let method = req.method().to_string();
+        let path = req.path().to_string();
 
-impl LoggingMiddleware {
-    pub fn new(log_level: tracing::Level) -> Self {
-        Self { log_level }
-    }
-}
+        info!("Request: {} {}", method, path);
 
-#[async_trait]
-impl Middleware for LoggingMiddleware {
-    async fn process(&self, ctx: &mut Context) -> Result<(), MiddlewareError> {
-        info!(
-            request_id = %ctx.request_id,
-            path = %ctx.path,
-            method = %ctx.method,
-            tenant_id = ?ctx.tenant_id,
-            user_id = ?ctx.user_id,
-            "Processing request"
-        );
-        Ok(())
+        let fut = self.service.call(req);
+
+        Box::pin(async move {
+            match fut.await {
+                Ok(res) => {
+                    info!(
+                        "Response: {} {} - Status: {}",
+                        method,
+                        path,
+                        res.status().as_u16()
+                    );
+                    Ok(res)
+                }
+                Err(e) => {
+                    error!(
+                        "Error: {} {} - {}",
+                        method,
+                        path,
+                        e.to_string()
+                    );
+                    Err(e)
+                }
+            }
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use actix_web::test;
+    use actix_web::{web, App, HttpResponse};
 
-    #[tokio::test]
-    async fn test_rate_limit_middleware() {
-        let config = Arc::new(RateLimitConfig {
-            requests_per_second: 10,
-            burst_size: 5,
-        });
-        let middleware = RateLimitMiddleware::new(config);
-        let mut ctx = Context::new("/test".to_string(), "GET".to_string());
-
-        assert!(middleware.process(&mut ctx).await.is_ok());
+    async fn test_handler() -> HttpResponse {
+        HttpResponse::Ok().body("test")
     }
 
-    #[tokio::test]
-    async fn test_logging_middleware() {
-        let middleware = LoggingMiddleware::new(tracing::Level::INFO);
-        let mut ctx = Context::new("/test".to_string(), "POST".to_string());
-        ctx.tenant_id = Some("test-tenant".to_string());
-        ctx.user_id = Some("test-user".to_string());
+    #[actix_web::test]
+    async fn test_logger_middleware() {
+        let app = test::init_service(
+            App::new()
+                .wrap(Logger::new())
+                .route("/test", web::get().to(test_handler)),
+        )
+        .await;
 
-        assert!(middleware.process(&mut ctx).await.is_ok());
+        let req = test::TestRequest::get().uri("/test").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
     }
 } 

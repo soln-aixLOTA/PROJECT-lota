@@ -1,10 +1,11 @@
-use anyhow::Result;
 use serde::Serialize;
-use std::sync::Once;
-use tracing::{info, Level};
-use tracing_subscriber::{fmt, EnvFilter};
-
-static INIT: Once = Once::new();
+use std::str::FromStr;
+use tracing::Level;
+use tracing_subscriber::{
+    fmt::{self, format::FmtSpan},
+    EnvFilter,
+};
+use uuid;
 
 #[derive(Debug, Serialize)]
 pub struct LogContext {
@@ -37,35 +38,32 @@ impl LogContext {
     }
 }
 
-pub fn init() -> Result<()> {
-    INIT.call_once(|| {
-        let env_filter =
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+/// Initialize logging with the specified log level
+pub fn init_logging(level: Option<String>) -> anyhow::Result<()> {
+    let env_filter = match level {
+        Some(level) => {
+            let level = Level::from_str(&level).unwrap_or(Level::INFO);
+            EnvFilter::new(format!("{}={}", module_path!(), level))
+        }
+        None => EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+    };
 
-        let subscriber = fmt()
-            .with_env_filter(env_filter)
-            .with_target(false)
-            .with_thread_ids(true)
-            .with_thread_names(true)
-            .with_file(true)
-            .with_line_number(true)
-            .with_level(true)
-            .json()
-            .flatten_event(true)
-            .with_current_span(true)
-            .with_span_list(true)
-            .with_timer(fmt::time::UtcTime::rfc_3339())
-            .with_ansi(false)
-            .with_filter_reloading();
-
-        subscriber.init();
-    });
+    tracing_subscriber::fmt()
+        .with_env_filter(env_filter)
+        .with_target(false)
+        .with_thread_ids(true)
+        .with_thread_names(true)
+        .with_file(true)
+        .with_line_number(true)
+        .with_level(true)
+        .with_span_events(FmtSpan::CLOSE)
+        .init();
 
     Ok(())
 }
 
 pub fn log_request(ctx: &LogContext, message: &str) {
-    info!(
+    tracing::info!(
         request_id = %ctx.request_id,
         tenant_id = ?ctx.tenant_id,
         user_id = ?ctx.user_id,
@@ -92,9 +90,9 @@ mod tests {
     }
 
     #[test]
-    fn test_logging_initialization() {
-        assert!(init().is_ok());
-        // Second initialization should also be ok due to Once guard
-        assert!(init().is_ok());
+    fn test_init_logging() {
+        assert!(init_logging(None).is_ok());
+        assert!(init_logging(Some("debug".to_string())).is_ok());
+        assert!(init_logging(Some("invalid".to_string())).is_ok()); // Falls back to INFO
     }
 }

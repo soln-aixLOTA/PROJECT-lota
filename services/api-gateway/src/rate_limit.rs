@@ -1,205 +1,170 @@
-use std::collections::HashMap;
-use actix_web::dev::{Service, Transform};
-use actix_web::{Error, HttpMessage, http::Method};
-use futures::future::{ok, Ready};
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use std::time::{Duration, Instant};
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
-use prometheus::{IntCounter, register_int_counter};
+use actix_web::{
+    dev::{Service, ServiceRequest, ServiceResponse, Transform},
+    Error, HttpMessage,
+};
+use dashmap::DashMap;
+use futures::future::{ok, Future, Ready};
 use lazy_static::lazy_static;
-
-use crate::error::{ApiError, handle_rate_limit_error};
+use prometheus::{register_counter_vec, CounterVec};
+use serde_json::json;
+use std::{
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::{Duration, Instant},
+};
+use tokio::sync::Mutex;
+use tracing::{error, warn};
+use uuid::Uuid;
 
 lazy_static! {
-    static ref RATE_LIMIT_HITS: IntCounter = register_int_counter!(
-        "api_gateway_rate_limit_hits_total",
-        "Total number of rate limit hits",
-        &["endpoint", "method", "tier"]
-    ).unwrap();
+    static ref RATE_LIMIT_HITS: CounterVec = register_counter_vec!(
+        "api_rate_limit_hits",
+        "API rate limit hits by tenant and tier",
+        &["tenant_id", "tier"]
+    )
+    .unwrap();
+
+    static ref RATE_LIMITS: DashMap<String, RateLimit> = {
+        let mut m = DashMap::new();
+
+        // Define rate limits for different tiers
+        m.insert(
+            "free".to_string(),
+            RateLimit {
+                requests_per_second: 2,
+                burst_size: 5,
+            },
+        );
+
+        m.insert(
+            "basic".to_string(),
+            RateLimit {
+                requests_per_second: 10,
+                burst_size: 20,
+            },
+        );
+
+        m.insert(
+            "premium".to_string(),
+            RateLimit {
+                requests_per_second: 50,
+                burst_size: 100,
+            },
+        );
+
+        m
+    };
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RateLimitInfo {
-    pub requests_per_window: u32,
-    pub window_seconds: u32,
+#[derive(Debug, Clone)]
+pub struct RateLimit {
+    pub requests_per_second: u32,
     pub burst_size: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EndpointLimit {
-    pub path: String,
-    pub method: Option<String>,  // None means all methods
-    pub rate_limit: RateLimitInfo,
+#[derive(Debug)]
+struct TokenBucket {
+    tokens: f64,
+    last_update: Instant,
+    rate: f64,
+    capacity: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TierConfig {
-    pub name: String,
-    pub base_rate_limit: RateLimitInfo,
-    pub endpoint_limits: Vec<EndpointLimit>,
+impl TokenBucket {
+    fn new(rate: f64, capacity: f64) -> Self {
+        Self {
+            tokens: capacity,
+            last_update: Instant::now(),
+            rate,
+            capacity,
+        }
+    }
+
+    fn try_consume(&mut self, tokens: f64) -> bool {
+        let now = Instant::now();
+        let elapsed = now.duration_since(self.last_update).as_secs_f64();
+        self.tokens = (self.tokens + elapsed * self.rate).min(self.capacity);
+        self.last_update = now;
+
+        if self.tokens >= tokens {
+            self.tokens -= tokens;
+            true
+        } else {
+            false
+        }
+    }
 }
 
-#[derive(Clone)]
-pub struct RateLimitConfig {
-    tier_limits: Arc<HashMap<String, TierConfig>>,
-    usage: Arc<RwLock<HashMap<String, HashMap<String, (Instant, u32)>>>>,  // tenant_id -> (endpoint -> (window_start, count))
+pub struct RateLimitMiddleware {
+    buckets: Arc<DashMap<String, Arc<Mutex<TokenBucket>>>>,
 }
 
-impl RateLimitConfig {
+impl RateLimitMiddleware {
     pub fn new() -> Self {
         Self {
-            tier_limits: Arc::new(HashMap::new()),
-            usage: Arc::new(RwLock::new(HashMap::new())),
+            buckets: Arc::new(DashMap::new()),
         }
     }
 
-    pub fn with_tier(mut self, tier: &str, base_requests: u32, window_seconds: u32) -> Self {
-        let config = TierConfig {
-            name: tier.to_string(),
-            base_rate_limit: RateLimitInfo {
-                requests_per_window: base_requests,
-                window_seconds,
-                burst_size: base_requests / 10, // Allow 10% burst
-            },
-            endpoint_limits: Vec::new(),
-        };
-
-        Arc::get_mut(&mut self.tier_limits)
-            .expect("Arc should be unique at this point")
-            .insert(tier.to_string(), config);
-        
-        self
-    }
-
-    pub fn with_endpoint_limit(
-        mut self,
-        tier: &str,
-        path: &str,
-        method: Option<&str>,
-        requests: u32,
-        window_seconds: u32
-    ) -> Self {
-        let tier_limits = Arc::get_mut(&mut self.tier_limits)
-            .expect("Arc should be unique at this point");
-        
-        if let Some(tier_config) = tier_limits.get_mut(tier) {
-            tier_config.endpoint_limits.push(EndpointLimit {
-                path: path.to_string(),
-                method: method.map(String::from),
-                rate_limit: RateLimitInfo {
-                    requests_per_window: requests,
-                    window_seconds,
-                    burst_size: requests / 10,
-                },
-            });
-        }
-        
-        self
-    }
-
-    pub fn into_middleware(self) -> RateLimitMiddleware {
-        RateLimitMiddleware { config: self }
+    fn get_rate_limit(&self, tenant_id: &str) -> RateLimit {
+        // In a real application, this would look up the tenant's tier from a database
+        // For now, we'll use the "basic" tier as default
+        RATE_LIMITS
+            .get("basic")
+            .map(|r| r.clone())
+            .unwrap_or_else(|| RateLimit {
+                requests_per_second: 5,
+                burst_size: 10,
+            })
     }
 
     async fn check_rate_limit(
         &self,
         tenant_id: &str,
-        tier: &str,
-        path: &str,
-        method: &Method,
-    ) -> Result<RateLimitStatus, ApiError> {
-        let mut usage = self.usage.write().await;
-        let now = Instant::now();
-        
-        let tier_config = self.tier_limits
-            .get(tier)
-            .ok_or_else(|| handle_rate_limit_error(
-                format!("Invalid subscription tier: {}", tier),
-                Some(json!({ "tier": tier }))
-            ))?;
-
-        // If it's unlimited (enterprise tier)
-        if tier_config.base_rate_limit.requests_per_window == 0 {
-            return Ok(RateLimitStatus::Allowed { remaining: u32::MAX });
-        }
-
-        // Find endpoint-specific limit if it exists
-        let limit_info = tier_config.endpoint_limits
-            .iter()
-            .find(|limit| {
-                limit.path == path && (
-                    limit.method.is_none() || 
-                    limit.method.as_ref().map(|m| m == method.as_str()).unwrap_or(false)
-                )
+        bucket_key: &str,
+    ) -> Result<(), actix_web::error::Error> {
+        let rate_limit = self.get_rate_limit(tenant_id);
+        let bucket = self
+            .buckets
+            .entry(bucket_key.to_string())
+            .or_insert_with(|| {
+                Arc::new(Mutex::new(TokenBucket::new(
+                    rate_limit.requests_per_second as f64,
+                    rate_limit.burst_size as f64,
+                )))
             })
-            .map(|limit| &limit.rate_limit)
-            .unwrap_or(&tier_config.base_rate_limit);
+            .clone();
 
-        // Get or create tenant usage map
-        let tenant_usage = usage
-            .entry(tenant_id.to_string())
-            .or_insert_with(HashMap::new);
+        let mut bucket = bucket.lock().await;
+        if !bucket.try_consume(1.0) {
+            RATE_LIMIT_HITS
+                .with_label_values(&[tenant_id, "basic"])
+                .inc();
 
-        // Create endpoint key
-        let endpoint_key = format!("{}:{}", method, path);
-        
-        let entry = tenant_usage
-            .entry(endpoint_key.clone())
-            .or_insert_with(|| (now, 0));
+            warn!(
+                "Rate limit exceeded for tenant {} with key {}",
+                tenant_id, bucket_key
+            );
 
-        let window = Duration::from_secs(limit_info.window_seconds as u64);
-        if now.duration_since(entry.0) > window {
-            // Reset window
-            entry.0 = now;
-            entry.1 = 0;
+            return Err(actix_web::error::ErrorTooManyRequests(json!({
+                "error": "rate_limit_exceeded",
+                "message": "Too many requests",
+                "retry_after": (1.0 / rate_limit.requests_per_second as f64).ceil() as u32
+            })));
         }
 
-        let remaining = limit_info.requests_per_window.saturating_sub(entry.1);
-        
-        if entry.1 >= limit_info.requests_per_window {
-            let reset_time = entry.0 + window;
-            
-            // Record rate limit hit
-            RATE_LIMIT_HITS.with_label_values(&[
-                path,
-                method.as_str(),
-                tier,
-            ]).inc();
-
-            Err(handle_rate_limit_error(
-                "Rate limit exceeded",
-                Some(json!({
-                    "tenant_id": tenant_id,
-                    "tier": tier,
-                    "endpoint": endpoint_key,
-                    "limit": limit_info.requests_per_window,
-                    "reset": reset_time.duration_since(now).as_secs(),
-                }))
-            ))
-        } else {
-            entry.1 += 1;
-            Ok(RateLimitStatus::Allowed { remaining })
-        }
+        Ok(())
     }
 }
 
-#[derive(Debug)]
-enum RateLimitStatus {
-    Allowed { remaining: u32 },
-}
-
-pub struct RateLimitMiddleware {
-    config: RateLimitConfig,
-}
-
-impl<S> Transform<S, ServiceRequest> for RateLimitMiddleware
+impl<S, B> Transform<S, ServiceRequest> for RateLimitMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
+    B: 'static,
 {
-    type Response = ServiceResponse;
+    type Response = ServiceResponse<B>;
     type Error = Error;
     type InitError = ();
     type Transform = RateLimitMiddlewareService<S>;
@@ -208,22 +173,23 @@ where
     fn new_transform(&self, service: S) -> Self::Future {
         ok(RateLimitMiddlewareService {
             service,
-            config: self.config.clone(),
+            buckets: self.buckets.clone(),
         })
     }
 }
 
 pub struct RateLimitMiddlewareService<S> {
     service: S,
-    config: RateLimitConfig,
+    buckets: Arc<DashMap<String, Arc<Mutex<TokenBucket>>>>,
 }
 
-impl<S> Service<ServiceRequest> for RateLimitMiddlewareService<S>
+impl<S, B> Service<ServiceRequest> for RateLimitMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
+    B: 'static,
 {
-    type Response = ServiceResponse;
+    type Response = ServiceResponse<B>;
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 
@@ -232,50 +198,67 @@ where
     }
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let tenant_id = req.headers()
-            .get("X-Tenant-ID")
-            .and_then(|h| h.to_str().ok())
-            .unwrap_or("anonymous")
-            .to_string();
+        let tenant_id = req
+            .extensions()
+            .get::<Uuid>()
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "anonymous".to_string());
 
-        let tier = req.headers()
-            .get("X-Subscription-Tier")
-            .and_then(|h| h.to_str().ok())
-            .unwrap_or("free")
-            .to_string();
-
-        let path = req.path().to_string();
-        let method = req.method().clone();
-
-        let config = self.config.clone();
-        let fut = self.service.call(req);
+        let bucket_key = format!("{}:{}", tenant_id, req.path());
+        let buckets = self.buckets.clone();
+        let middleware = RateLimitMiddleware { buckets };
 
         Box::pin(async move {
-            match config.check_rate_limit(&tenant_id, &tier, &path, &method).await {
-                Ok(RateLimitStatus::Allowed { remaining }) => {
-                    let mut response = fut.await?;
-                    
-                    // Add rate limit headers
-                    let headers = response.headers_mut();
-                    headers.insert(
-                        "X-RateLimit-Remaining",
-                        remaining.to_string().parse().unwrap()
-                    );
-                    
-                    Ok(response)
-                }
-                Err(e) => {
-                    warn!(
-                        tenant_id = %tenant_id,
-                        tier = %tier,
-                        path = %path,
-                        method = %method,
-                        error = %e,
-                        "Rate limit exceeded"
-                    );
-                    Err(e.into())
-                }
-            }
+            middleware.check_rate_limit(&tenant_id, &bucket_key).await?;
+
+            let fut = self.service.call(req);
+            fut.await
         })
     }
-} 
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::test;
+    use actix_web::{web, App, HttpResponse};
+    use std::time::Duration;
+    use tokio::time::sleep;
+
+    async fn test_handler() -> HttpResponse {
+        HttpResponse::Ok().finish()
+    }
+
+    #[actix_web::test]
+    async fn test_rate_limiting() {
+        let app = test::init_service(
+            App::new()
+                .wrap(RateLimitMiddleware::new())
+                .route("/test", web::get().to(test_handler)),
+        )
+        .await;
+
+        // First request should succeed
+        let req = test::TestRequest::get().uri("/test").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+
+        // Immediate second request should also succeed (due to burst)
+        let req = test::TestRequest::get().uri("/test").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+
+        // Third immediate request should fail
+        let req = test::TestRequest::get().uri("/test").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status().as_u16(), 429);
+
+        // Wait for token bucket to refill
+        sleep(Duration::from_secs(1)).await;
+
+        // Request should succeed again
+        let req = test::TestRequest::get().uri("/test").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+    }
+}

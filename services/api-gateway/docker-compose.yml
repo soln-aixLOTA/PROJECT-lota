@@ -1,9 +1,9 @@
-name: lota-api-gateway
+version: "3.8"
 
 services:
   api-gateway:
     build:
-      context: ./services/api-gateway
+      context: .
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
@@ -48,7 +48,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./services/api-gateway/migrations:/docker-entrypoint-initdb.d
+      - ./migrations:/docker-entrypoint-initdb.d
     networks:
       - lota-network
     healthcheck:
@@ -82,7 +82,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     volumes:
-      - ./services/api-gateway/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
@@ -97,8 +97,8 @@ services:
   grafana:
     image: grafana/grafana:latest
     volumes:
-      - ./services/api-gateway/grafana/provisioning/:/etc/grafana/provisioning/
-      - ./services/api-gateway/grafana/dashboards/:/var/lib/grafana/dashboards/
+      - ./grafana/provisioning/:/etc/grafana/provisioning/
+      - ./grafana/dashboards/:/var/lib/grafana/dashboards/
       - grafana_data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
