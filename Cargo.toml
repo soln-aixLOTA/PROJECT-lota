@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["services/api-gateway", "services/user-management"]
+members = ["services/hardware-attestation", "services/ai-attestation"]
 
 [workspace.dependencies]
 tokio = { version = "1.35", features = ["full"] }

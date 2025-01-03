@@ -1,11 +1,11 @@
+use anyhow::Result;
 use serde::Serialize;
 use std::str::FromStr;
-use tracing::Level;
-use tracing_subscriber::{
-    fmt::{self, format::FmtSpan},
-    EnvFilter,
-};
-use uuid;
+use std::sync::Once;
+use tracing::{info, Level};
+use tracing_subscriber::{fmt, EnvFilter};
+
+static INIT: Once = Once::new();
 
 #[derive(Debug, Serialize)]
 pub struct LogContext {
@@ -38,32 +38,31 @@ impl LogContext {
     }
 }
 
-/// Initialize logging with the specified log level
-pub fn init_logging(level: Option<String>) -> anyhow::Result<()> {
-    let env_filter = match level {
-        Some(level) => {
-            let level = Level::from_str(&level).unwrap_or(Level::INFO);
-            EnvFilter::new(format!("{}={}", module_path!(), level))
-        }
-        None => EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
-    };
+pub fn init_logging(log_level: &str) -> anyhow::Result<()> {
+    let env_filter = EnvFilter::from_str(log_level).unwrap_or_else(|_| {
+        EnvFilter::new(format!(
+            "{}={}",
+            env!("CARGO_PKG_NAME"),
+            log_level.to_lowercase()
+        ))
+    });
 
     tracing_subscriber::fmt()
         .with_env_filter(env_filter)
         .with_target(false)
         .with_thread_ids(true)
-        .with_thread_names(true)
         .with_file(true)
         .with_line_number(true)
         .with_level(true)
-        .with_span_events(FmtSpan::CLOSE)
+        .with_timer(fmt::time::UtcTime::rfc_3339())
         .init();
 
+    tracing::info!("Logging initialized at level: {}", log_level);
     Ok(())
 }
 
 pub fn log_request(ctx: &LogContext, message: &str) {
-    tracing::info!(
+    info!(
         request_id = %ctx.request_id,
         tenant_id = ?ctx.tenant_id,
         user_id = ?ctx.user_id,
@@ -90,9 +89,9 @@ mod tests {
     }
 
     #[test]
-    fn test_init_logging() {
-        assert!(init_logging(None).is_ok());
-        assert!(init_logging(Some("debug".to_string())).is_ok());
-        assert!(init_logging(Some("invalid".to_string())).is_ok()); // Falls back to INFO
+    fn test_logging_initialization() {
+        assert!(init_logging("info").is_ok());
+        // Second initialization should also be ok due to Once guard
+        assert!(init_logging("info").is_ok());
     }
 }

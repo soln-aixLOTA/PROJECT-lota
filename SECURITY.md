@@ -1,56 +1,128 @@
 # Security Policy
 
-## Reporting a Vulnerability
+## Overview
 
-If you discover a security vulnerability in LotaBots, please report it by emailing [security@example.com]. We take all security reports seriously and will respond within 24 hours.
+The LotaBots platform implements multiple layers of security controls to ensure the integrity, confidentiality, and availability of AI operations and hardware attestation.
 
-## Security Practices
+## Security Features
 
-### Authentication & Authorization
-- Use JWT for authentication
-- Implement role-based access control (RBAC)
-- Enforce MFA for administrative access
-- Regular token rotation
+### Hardware Attestation Service
 
-### Data Protection
-- Encrypt data in transit (TLS 1.3)
-- Encrypt sensitive data at rest
-- Regular security audits
-- Secure key management
+- **Container Security**
 
-### Code Security
-- Regular dependency updates
-- Automated vulnerability scanning
-- Code signing
-- Container image scanning
+  - Mandatory SELinux enforcement
+  - Seccomp profile requirements
+  - Read-only root filesystem
+  - Container Device Interface (CDI) for GPU access
+  - Capability dropping and privilege restrictions
+  - Mount point validation and security
 
-### Infrastructure Security
-- Network segmentation
-- Regular security patches
-- Firewall rules
-- DDoS protection
+- **Cloud Storage Security**
+  - Encrypted data transfer
+  - Access control through AWS IAM and Google Cloud IAM
+  - Bucket policy enforcement
+  - Audit logging
 
-### Compliance
-- GDPR compliance
-- SOC 2 compliance
-- Regular security training
-- Incident response plan
+### AI Attestation Service
 
-## Version Support
+- **API Security**
 
-We provide security updates for:
-- Current major version
-- Previous major version (critical updates only)
+  - JWT-based authentication
+  - Cookie security with secure and httpOnly flags
+  - CORS policy enforcement
+  - Rate limiting
+  - Input validation and sanitization
 
-## Security Measures
-1. Regular penetration testing
-2. Automated security scanning
-3. Third-party security audits
-4. Bug bounty program
+- **Database Security**
+  - Connection encryption
+  - Prepared statements to prevent SQL injection
+  - Connection pooling with timeouts
+  - Minimal privilege principle
 
-## Responsible Disclosure
-We request that you:
-1. Report vulnerabilities promptly
-2. Avoid accessing others' data
-3. Provide sufficient time for patches
-4. Keep vulnerability details private until fixed 
+## Security Best Practices
+
+### Development
+
+1. **Code Security**
+
+   - Run `cargo audit` regularly
+   - Keep dependencies updated
+   - Use workspace-level dependency management
+   - Enable all security-related compiler warnings
+
+2. **Testing**
+
+   - Include security-focused test cases
+   - Test for common vulnerabilities
+   - Validate input handling
+   - Check error cases
+
+3. **Configuration**
+   - Never commit secrets to version control
+   - Use environment variables for sensitive data
+   - Maintain separate configurations for development and production
+
+### Deployment
+
+1. **Environment Security**
+
+   - Use minimal base images
+   - Regular security updates
+   - Network segmentation
+   - Firewall rules
+
+2. **Monitoring**
+   - Enable audit logging
+   - Use OpenTelemetry for tracing
+   - Monitor for suspicious activities
+   - Set up alerts for security events
+
+## Known Security Considerations
+
+### Hardware Attestation
+
+- TOCTOU (Time of Check to Time of Use) vulnerabilities mitigated through CDI
+- GPU isolation requirements
+- Hardware capability verification
+- Secure device management
+
+### AI Model Security
+
+- Model input validation
+- Output sanitization
+- Resource isolation
+- Compliance verification
+
+## Vulnerability Reporting
+
+### Reporting a Vulnerability
+
+1. **DO NOT** create a public GitHub issue
+2. Email security@lotabots.com with:
+   - Description of the vulnerability
+   - Steps to reproduce
+   - Potential impact
+   - Suggested fix (if available)
+
+### Response Timeline
+
+- Initial response: 24 hours
+- Assessment completion: 72 hours
+- Fix implementation: Based on severity
+  - Critical: 7 days
+  - High: 14 days
+  - Medium: 30 days
+  - Low: Next release
+
+## Security Contacts
+
+- Security Team: security@lotabots.com
+- Emergency Contact: security-emergency@lotabots.com
+- PGP Key: [Security Team PGP Key](https://lotabots.com/security/pgp-key.asc)
+
+## Compliance
+
+- SOC 2 Type II (In Progress)
+- ISO 27001 (Planned)
+- GDPR Compliance
+- CCPA Compliance

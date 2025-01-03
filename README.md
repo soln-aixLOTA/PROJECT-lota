@@ -1,172 +1,78 @@
 # LotaBots Platform
 
-A secure, scalable, and enterprise-ready AI platform built with Rust and modern cloud-native technologies.
+## Overview
+
+LotaBots is a comprehensive platform for managing and attesting AI and hardware components. The platform consists of multiple services working together to provide secure, reliable, and scalable AI operations.
 
 ## Project Structure
 
 ```
-lotabots/
-├── services/               # Microservices
-│   ├── api-gateway/       # API Gateway & Request Router
-│   ├── user-management/   # User & Tenant Management
-│   ├── inference-service/ # AI Model Inference
-│   └── attestation-service/ # Security Attestation
-├── common/                # Shared Libraries
-│   ├── middleware/        # Common Middleware
-│   ├── auth/             # Authentication
-│   └── types/            # Shared Types
-├── infrastructure/        # Infrastructure Code
-│   ├── k8s/              # Kubernetes Manifests
-│   ├── helm/             # Helm Charts
-│   └── terraform/        # Terraform Configurations
-└── tests/                # Testing
-    ├── unit/             # Unit Tests
-    ├── integration/      # Integration Tests
-    └── e2e/              # End-to-End Tests
+services/
+├── hardware-attestation/  # Hardware verification and attestation service
+└── ai-attestation/       # AI model verification and compliance service
 ```
 
-## Prerequisites
+## Services
 
-- Rust 1.70+ (with cargo)
-- Docker 24.0+
-- Kubernetes 1.25+
-- GPU Support (NVIDIA drivers & CUDA toolkit)
+### Hardware Attestation Service
 
-## Quick Start
+Responsible for verifying and attesting hardware configurations:
 
-1. **Setup Development Environment**
+- Hardware verification using NVML
+- Cloud storage integration
+- Secure logging and tracing
+  See [hardware-attestation/README.md](services/hardware-attestation/README.md) for details.
 
-   ```bash
-   # Clone the repository
-   git clone https://github.com/lotabots/platform.git
-   cd platform
+### AI Attestation Service
 
-   # Install dependencies
-   cargo build
-   ```
+Web service for AI model verification and compliance:
 
-2. **Run Services Locally**
+- RESTful API endpoints
+- PostgreSQL database integration
+- OpenTelemetry observability
+  See [ai-attestation/README.md](services/ai-attestation/README.md) for details.
 
-   ```bash
-   # Start all services
-   docker-compose up
+## Development
 
-   # Or run individual services
-   cd services/api-gateway
-   cargo run
-   ```
+### Prerequisites
 
-3. **Run Tests**
+- Rust 1.70 or later
+- PostgreSQL 13 or later
+- NVIDIA drivers (for hardware attestation)
 
-   ```bash
-   # Run all tests
-   cargo test
-
-   # Run specific service tests
-   cargo test -p api-gateway
-   ```
-
-## Service Documentation
-
-### API Gateway
-
-- Main entry point for all API requests
-- Handles authentication, rate limiting, and request routing
-- [API Gateway Documentation](services/api-gateway/README.md)
-
-### User Management
-
-- Manages users, tenants, and permissions
-- Handles authentication and authorization
-- [User Management Documentation](services/user-management/README.md)
-
-### Inference Service
-
-- Handles AI model inference requests
-- GPU resource management and optimization
-- [Inference Service Documentation](services/inference-service/README.md)
-
-### Attestation Service
-
-- Provides security attestation for AI models
-- Manages model verification and validation
-- [Attestation Service Documentation](services/attestation-service/README.md)
-
-## Development Guidelines
-
-### Code Style
-
-- Follow Rust style guidelines
-- Use `cargo fmt` for formatting
-- Run `cargo clippy` for linting
-
-### Git Workflow
-
-1. Create feature branch from `main`
-2. Make changes and commit
-3. Run tests locally
-4. Create pull request
-5. Wait for CI checks and review
-6. Merge to `main`
-
-### Testing Requirements
-
-- Unit tests for all new code
-- Integration tests for API endpoints
-- E2E tests for critical flows
-- Minimum 80% test coverage
-
-## Deployment
-
-### Local Development
+### Building
 
 ```bash
-docker-compose up
+# Build all services
+cargo build
+
+# Build specific service
+cargo build -p hardware-attestation
+cargo build -p ai-attestation
 ```
 
-### Kubernetes
+### Testing
 
 ```bash
-# Deploy using Helm
-cd infrastructure/helm
-helm install lotabots ./lotabots-chart
+# Run all tests
+cargo test
 
-# Or using kubectl
-kubectl apply -f infrastructure/k8s/
+# Test specific service
+cargo test -p hardware-attestation
+cargo test -p ai-attestation
 ```
 
-### Production Deployment
+## Configuration
 
-See [Deployment Guide](docs/deployment.md) for detailed instructions.
-
-## Monitoring & Observability
-
-- Prometheus metrics exposed on `/metrics`
-- Grafana dashboards in `infrastructure/monitoring`
-- Distributed tracing with Jaeger
-- Structured logging with JSON format
-
-## Security
-
-- All endpoints require authentication
-- JWT-based authorization
-- Rate limiting enabled
-- Regular security audits
-- See [Security Policy](SECURITY.md)
+Each service has its own configuration requirements. See the respective service README files for details.
 
 ## Contributing
 
-1. Read [Contributing Guidelines](CONTRIBUTING.md)
+1. Ensure you have the latest Rust toolchain
 2. Fork the repository
-3. Create feature branch
-4. Make changes
-5. Create pull request
+3. Create a feature branch
+4. Submit a pull request
 
 ## License
 
-[License details here]
-
-## Support
-
-- [Issue Tracker](https://github.com/lotabots/platform/issues)
-- [Documentation](docs/)
+[Add appropriate license information]
