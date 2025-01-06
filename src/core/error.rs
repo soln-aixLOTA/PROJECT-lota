@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 use axum::extract::multipart::MultipartError;
+=======
+>>>>>>> 921251a (fetch)
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -87,6 +90,7 @@ impl From<uuid::Error> for DocumentError {
     }
 }
 
+<<<<<<< HEAD
 impl From<MultipartError> for DocumentError {
     fn from(err: MultipartError) -> Self {
         DocumentError::ValidationError(err.to_string())
@@ -99,4 +103,6 @@ impl From<std::io::Error> for DocumentError {
     }
 }
 
+=======
+>>>>>>> 921251a (fetch)
 pub type DocumentResult<T> = Result<T, DocumentError>;

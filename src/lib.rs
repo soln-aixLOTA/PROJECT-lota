@@ -21,6 +21,7 @@
 //! }
 //! ```
 
+<<<<<<< HEAD
 pub mod api;
 pub mod auth;
 pub mod core;
@@ -28,3 +29,10 @@ pub mod db;
 pub mod handlers;
 pub mod models;
 pub mod storage;
+=======
+pub mod config;
+pub mod errors;
+pub mod handlers;
+pub mod middleware;
+pub mod resource_management;
+>>>>>>> 921251a (fetch)
