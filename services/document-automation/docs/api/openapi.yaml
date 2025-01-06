@@ -1,0 +1,225 @@
+openapi: 3.0.3
+info:
+  title: Document Automation Service API
+  description: |
+    API for managing document automation workflows, including storage, OCR, classification, and processing.
+
+    ## Features
+    - Document upload and retrieval
+    - Secure storage with multiple backend options (S3, Local, GCS)
+    - Document workflow management
+    - OCR processing
+    - Document classification
+    - Security and compliance features
+  version: 0.1.0
+  contact:
+    name: Development Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        content_type:
+          type: string
+        size:
+          type: integer
+          format: int64
+        storage_path:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, archived]
+        metadata:
+          type: object
+          properties:
+            author:
+              type: string
+            tags:
+              type: array
+              items:
+                type: string
+            classification:
+              type: string
+              enum: [legal, financial, medical, hr, general]
+              nullable: true
+            security_level:
+              type: string
+              enum: [public, internal, confidential, restricted]
+            custom_fields:
+              type: object
+              additionalProperties:
+                type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DocumentList:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "OK"
+
+  /documents:
+    post:
+      summary: Upload a new document
+      description: Upload a document file with optional metadata
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Document created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    get:
+      summary: List documents
+      description: Retrieve a list of documents with pagination
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Maximum number of documents to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Number of documents to skip
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentList"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /documents/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Document ID
+
+    get:
+      summary: Get document
+      description: Retrieve a document by ID
+      responses:
+        "200":
+          description: Document content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Delete document
+      description: Delete a document by ID
+      responses:
+        "204":
+          description: Document deleted successfully
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

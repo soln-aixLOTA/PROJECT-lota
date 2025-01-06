@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# Rust
+target/
+
+# Docker
+.docker
+
+# Environment files
+.env*
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Documentation
+docs/
+*.md
+
+# Tests
+tests/
+*_test.rs
+*_tests.rs

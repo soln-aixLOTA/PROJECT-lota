@@ -124,3 +124,6 @@ venv/
 .venv/
 __pycache__/
 *.py[cod]
+
+.codegpt
+.fake

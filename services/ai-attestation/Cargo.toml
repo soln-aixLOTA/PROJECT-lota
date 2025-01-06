@@ -16,9 +16,16 @@ opentelemetry = { workspace = true }
 opentelemetry-otlp = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sqlx = { workspace = true }
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "json",
+    "chrono",
+    "macros",
+    "migrate",
+] }
 thiserror = { workspace = true }
-tokio = { workspace = true }
+tokio = { version = "1.35", features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 uuid = { version = "1.6", features = ["v4"] }

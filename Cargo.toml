@@ -1,42 +1,35 @@
-[workspace]
-resolver = "2"
-members = ["services/hardware-attestation", "services/ai-attestation"]
+[package]
+name = "document-automation"
+version = "0.1.0"
+edition = "2021"
 
-[workspace.dependencies]
-tokio = { version = "1.35", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-anyhow = "1.0"
-thiserror = "1.0"
-async-trait = "0.1"
-futures = "0.3"
-sqlx = { version = "0.7", features = [
+[dependencies]
+axum = { version = "0.8.1", features = ["macros", "multipart"] }
+axum-extra = { version = "0.10.0", features = ["typed-header"] }
+tokio = { version = "1.42.0", features = ["full"] }
+sqlx = { version = "0.8.3", features = [
     "runtime-tokio-rustls",
     "postgres",
-    "mysql",
-    "sqlite",
-    "json",
-    "chrono",
     "uuid",
+    "chrono",
+    "json",
 ] }
-opentelemetry = { version = "0.20", features = [
-    "trace",
-    "metrics",
-    "rt-tokio",
-] }
-opentelemetry-otlp = "0.13"
-tracing-opentelemetry = "0.20"
-idna = "1.0"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.134"
+uuid = { version = "1.11.0", features = ["v4", "serde"] }
+chrono = { version = "0.4.39", features = ["serde"] }
+jsonwebtoken = "9.3.0"
+aws-config = "1.5.13"
+aws-sdk-s3 = "1.68.0"
+aws-types = "1.3.3"
+config = "0.15.4"
+dotenvy = "0.15.7"
+num_cpus = "1.16.0"
+headers = "0.4.0"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+async-trait = "0.1.77"
+bytes = "1.5.0"
 
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-panic = "abort"
-strip = true
-
-[profile.dev]
-opt-level = 0
-debug = true
+[dev-dependencies]
+tokio-test = "0.4.4"

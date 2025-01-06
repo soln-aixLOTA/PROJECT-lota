@@ -1,0 +1,1 @@
+axum::middleware::FromFn<impl (Fn(std::option::Option<AuthUser>, axum::http::Request<Body>, Next) -> {type error}) + Clone + Send + Sync + 'static, AppState, Route, _>

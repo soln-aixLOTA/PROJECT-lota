@@ -21,8 +21,10 @@
 //! }
 //! ```
 
-pub mod config;
-pub mod errors;
+pub mod api;
+pub mod auth;
+pub mod core;
+pub mod db;
 pub mod handlers;
-pub mod middleware;
-pub mod resource_management;
+pub mod models;
+pub mod storage;

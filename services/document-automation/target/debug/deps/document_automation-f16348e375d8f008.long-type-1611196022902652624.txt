@@ -1,0 +1,1 @@
+axum::middleware::FromFn<impl (Fn(std::option::Option<AuthUser>, axum::http::Request<Body>, axum::middleware::Next) -> Pin<Box<(dyn futures::Future<Output = Result<Response<Body>, AuthError>> + std::marker::Send + 'static)>>) + Clone + std::marker::Send + Sync + 'static, AppState, Route, _>

@@ -1,0 +1,27 @@
+[server]
+host = "127.0.0.1"
+port = 8080
+workers = 4
+
+[database]
+url = "postgres://postgres:postgres@localhost/docautomation"
+max_connections = 5
+idle_timeout_seconds = 300
+
+[storage]
+provider = "local"
+bucket_name = "documents"
+region = "us-east-1"
+endpoint = ""
+access_key_id = ""
+secret_access_key = ""
+
+[security]
+jwt_secret = "development-secret-key-change-in-production"
+token_expiration_hours = 24
+encryption_key = "development-encryption-key-change-in-production"
+
+[ocr]
+tesseract_data_path = "/usr/share/tesseract-ocr/4.00/tessdata"
+supported_languages = ["eng"]
+timeout_seconds = 30

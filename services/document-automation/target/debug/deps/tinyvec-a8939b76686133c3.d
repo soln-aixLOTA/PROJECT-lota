@@ -1,0 +1,11 @@
+/home/dislove/下载/LOTA ai/services/document-automation/target/debug/deps/libtinyvec-a8939b76686133c3.rmeta: /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/lib.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/array.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/array/generated_impl.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/arrayvec.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/arrayvec_drain.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/slicevec.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/tinyvec.rs
+
+/home/dislove/下载/LOTA ai/services/document-automation/target/debug/deps/tinyvec-a8939b76686133c3.d: /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/lib.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/array.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/array/generated_impl.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/arrayvec.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/arrayvec_drain.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/slicevec.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/tinyvec.rs
+
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/lib.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/array.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/array/generated_impl.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/arrayvec.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/arrayvec_drain.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/slicevec.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tinyvec-1.8.1/src/tinyvec.rs:

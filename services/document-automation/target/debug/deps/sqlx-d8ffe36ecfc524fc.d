@@ -1,0 +1,12 @@
+/home/dislove/下载/LOTA ai/services/document-automation/target/debug/deps/libsqlx-d8ffe36ecfc524fc.rmeta: /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/lib.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/any/mod.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/macros/mod.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/ty_match.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/spec_error.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/lib.md /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/macros/test.md /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/any/install_drivers_note.md
+
+/home/dislove/下载/LOTA ai/services/document-automation/target/debug/deps/sqlx-d8ffe36ecfc524fc.d: /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/lib.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/any/mod.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/macros/mod.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/ty_match.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/spec_error.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/lib.md /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/macros/test.md /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/any/install_drivers_note.md
+
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/lib.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/any/mod.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/macros/mod.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/ty_match.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/spec_error.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/lib.md:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/macros/test.md:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sqlx-0.8.3/src/any/install_drivers_note.md:

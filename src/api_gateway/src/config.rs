@@ -1,11 +1,11 @@
-use std::env;
-use serde::{Deserialize, Serialize};
 use config::{Config, ConfigError, Environment, File};
 use lazy_static::lazy_static;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use lotabots_common::logging::LoggingConfig;
+use serde::{Deserialize, Serialize};
+use std::env;
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DatabaseConfig {
@@ -50,29 +50,29 @@ pub struct AppConfig {
     // Server settings
     pub host: String,
     pub port: u16,
-    
+
     // Worker pool settings
     pub min_workers: usize,
     pub max_workers: usize,
     pub worker_queue_size: usize,
     pub max_concurrent_requests: usize,
-    
+
     // Rate limiting
     pub rate_limit_requests_per_second: u32,
-    
+
     // Adaptive scaling settings
     pub scaling_check_interval: Duration,
     pub scale_up_threshold: f64,   // Load factor above which to scale up
     pub scale_down_threshold: f64, // Load factor below which to scale down
-    pub scale_up_factor: f64,     // Factor by which to increase workers
-    pub scale_down_factor: f64,   // Factor by which to decrease workers
+    pub scale_up_factor: f64,      // Factor by which to increase workers
+    pub scale_down_factor: f64,    // Factor by which to decrease workers
     pub min_scale_interval: Duration, // Minimum time between scaling operations
-    
+
     // Resource thresholds
-    pub max_cpu_usage: f64,      // Maximum CPU usage percentage
-    pub max_memory_usage: f64,   // Maximum memory usage percentage
-    pub max_gpu_usage: f64,      // Maximum GPU usage percentage
-    
+    pub max_cpu_usage: f64,    // Maximum CPU usage percentage
+    pub max_memory_usage: f64, // Maximum memory usage percentage
+    pub max_gpu_usage: f64,    // Maximum GPU usage percentage
+
     // Timeouts
     pub request_timeout: Duration,
     pub worker_shutdown_timeout: Duration,
@@ -120,7 +120,13 @@ impl AppConfig {
 
         // 4. ~/.nvidia-omniverse/config/global_repo.toml
         if let Some(home_dir) = env::home_dir() {
-            s.add_source(File::with_name(format!("{}/.nvidia-omniverse/config/global_repo", home_dir.display())).required(false));
+            s.add_source(
+                File::with_name(format!(
+                    "{}/.nvidia-omniverse/config/global_repo",
+                    home_dir.display()
+                ))
+                .required(false),
+            );
         }
 
         // 5. user.repo.toml (if found in the project root)
@@ -136,49 +142,49 @@ impl AppConfig {
         // Convert to AppConfig struct
         config.try_deserialize()
     }
-    
+
     fn validate(&self) -> Result<(), config::ConfigError> {
         if self.min_workers > self.max_workers {
             return Err(config::ConfigError::Message(
                 "min_workers cannot be greater than max_workers".to_string(),
             ));
         }
-        
+
         if self.scale_up_threshold <= self.scale_down_threshold {
             return Err(config::ConfigError::Message(
                 "scale_up_threshold must be greater than scale_down_threshold".to_string(),
             ));
         }
-        
+
         if self.scale_up_factor <= 1.0 {
             return Err(config::ConfigError::Message(
                 "scale_up_factor must be greater than 1.0".to_string(),
             ));
         }
-        
+
         if self.scale_down_factor >= 1.0 {
             return Err(config::ConfigError::Message(
                 "scale_down_factor must be less than 1.0".to_string(),
             ));
         }
-        
+
         Ok(())
     }
-    
+
     // Helper methods for common calculations
     pub fn get_max_queue_size(&self) -> usize {
         self.worker_queue_size * self.max_workers
     }
-    
+
     pub fn get_target_workers(&self, load_factor: f64) -> usize {
         let target = (self.min_workers as f64 * load_factor).ceil() as usize;
         target.clamp(self.min_workers, self.max_workers)
     }
-    
+
     pub fn should_scale_up(&self, load_factor: f64) -> bool {
         load_factor >= self.scale_up_threshold
     }
-    
+
     pub fn should_scale_down(&self, load_factor: f64) -> bool {
         load_factor <= self.scale_down_threshold
     }
@@ -186,9 +192,7 @@ impl AppConfig {
 
 // Global configuration holder
 lazy_static! {
-    static ref CONFIG: Arc<RwLock<AppConfig>> = Arc::new(RwLock::new(
-        AppConfig::from_env()
-    ));
+    static ref CONFIG: Arc<RwLock<AppConfig>> = Arc::new(RwLock::new(AppConfig::from_env()));
 }
 
 // Helper functions to access config
@@ -252,7 +256,7 @@ where
 
     loop {
         interval.tick().await;
-        
+
         match AppConfig::new() {
             Ok(new_config) => {
                 if new_config != last_config {
@@ -264,10 +268,10 @@ where
 
                     // Update the global config
                     update_config(new_config.clone()).await;
-                    
+
                     // Notify the callback
                     callback(event);
-                    
+
                     last_config = new_config;
                 }
             }

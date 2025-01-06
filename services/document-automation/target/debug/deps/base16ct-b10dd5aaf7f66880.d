@@ -1,0 +1,10 @@
+/home/dislove/下载/LOTA ai/services/document-automation/target/debug/deps/libbase16ct-b10dd5aaf7f66880.rmeta: /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/lib.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/lower.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/mixed.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/upper.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/display.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/error.rs
+
+/home/dislove/下载/LOTA ai/services/document-automation/target/debug/deps/base16ct-b10dd5aaf7f66880.d: /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/lib.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/lower.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/mixed.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/upper.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/display.rs /home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/error.rs
+
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/lib.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/lower.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/mixed.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/upper.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/display.rs:
+/home/dislove/.cargo/registry/src/index.crates.io-6f17d22bba15001f/base16ct-0.1.1/src/error.rs:

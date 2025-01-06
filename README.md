@@ -1,78 +1,97 @@
-# LotaBots Platform
+# Document Automation Service Scripts
 
-## Overview
+This directory contains scripts for managing and testing the Document Automation Service.
 
-LotaBots is a comprehensive platform for managing and attesting AI and hardware components. The platform consists of multiple services working together to provide secure, reliable, and scalable AI operations.
-
-## Project Structure
+## Directory Structure
 
 ```
-services/
-├── hardware-attestation/  # Hardware verification and attestation service
-└── ai-attestation/       # AI model verification and compliance service
+.
+├── config/             # Environment-specific configurations
+│   ├── dev/           # Development environment
+│   ├── test/          # Test environment
+│   └── prod/          # Production environment
+├── lib/               # Common library functions
+├── tests/             # Test scripts and resources
+└── scripts/           # Main scripts
 ```
 
-## Services
+## Scripts
 
-### Hardware Attestation Service
+- `set-env.sh`: Set up environment-specific configuration
+- `dev-token.sh`: Generate JWT tokens for development and testing
+- `load-test.sh`: Run load tests against the service
+- `test-all.sh`: Run all test scenarios
+- `db-manage.sh`: Database management utilities
+- `setup-dev.sh`: Set up development environment
 
-Responsible for verifying and attesting hardware configurations:
+## Environment Configuration
 
-- Hardware verification using NVML
-- Cloud storage integration
-- Secure logging and tracing
-  See [hardware-attestation/README.md](services/hardware-attestation/README.md) for details.
+Each environment (dev, test, prod) has its own configuration file in the `config/` directory. Use `set-env.sh` to switch between environments:
 
-### AI Attestation Service
+```bash
+# Set development environment
+./set-env.sh --env dev
 
-Web service for AI model verification and compliance:
+# Set test environment
+./set-env.sh --env test
 
-- RESTful API endpoints
-- PostgreSQL database integration
-- OpenTelemetry observability
-  See [ai-attestation/README.md](services/ai-attestation/README.md) for details.
+# Set production environment
+./set-env.sh --env prod
+```
+
+## Running Tests
+
+To run all tests:
+
+```bash
+# Run all tests in test environment
+./test-all.sh
+
+# Run specific test scenario
+./load-test.sh --scenario crud --token "your-token"
+```
+
+Available test scenarios:
+
+- `crud`: Basic CRUD operations
+- `workflow`: Document workflow operations
+- `mixed`: Mixed operations
+- `security`: Security-related tests
 
 ## Development
 
-### Prerequisites
-
-- Rust 1.70 or later
-- PostgreSQL 13 or later
-- NVIDIA drivers (for hardware attestation)
-
-### Building
+To set up the development environment:
 
 ```bash
-# Build all services
-cargo build
+# Set up development environment
+./setup-dev.sh
 
-# Build specific service
-cargo build -p hardware-attestation
-cargo build -p ai-attestation
-```
-
-### Testing
-
-```bash
-# Run all tests
-cargo test
-
-# Test specific service
-cargo test -p hardware-attestation
-cargo test -p ai-attestation
+# Generate development token
+./dev-token.sh --user test --role admin
 ```
 
 ## Configuration
 
-Each service has its own configuration requirements. See the respective service README files for details.
+Environment-specific configuration files (`config/<env>/config.sh`) contain:
+
+- Service URLs and endpoints
+- Database connection details
+- JWT configuration
+- Test parameters
+- Monitoring endpoints
+
+## Common Library
+
+The `lib/common.sh` file contains shared functions for:
+
+- Logging and output formatting
+- Environment validation
+- Docker and k6 checks
+- Test result validation
 
 ## Contributing
 
-1. Ensure you have the latest Rust toolchain
-2. Fork the repository
-3. Create a feature branch
-4. Submit a pull request
-
-## License
-
-[Add appropriate license information]
+1. Use the common library functions for consistency
+2. Follow the script organization structure
+3. Update environment configurations as needed
+4. Test changes in development environment first

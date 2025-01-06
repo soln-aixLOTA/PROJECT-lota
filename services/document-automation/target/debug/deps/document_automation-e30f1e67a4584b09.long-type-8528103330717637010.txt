@@ -1,0 +1,1 @@
+fn(axum::extract::State<{type error}>, AuthUser, std::string::String) -> impl std::future::Future<Output = Result<impl IntoResponse, {type error}>> {delete_document}

@@ -1,0 +1,4 @@
+cargo:rerun-if-changed=src/db/documents.rs
+cargo:rerun-if-changed=src/db/workflows.rs
+cargo:rerun-if-changed=migrations/
+cargo:rerun-if-changed=**/*.sql
