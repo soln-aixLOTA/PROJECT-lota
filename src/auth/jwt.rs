@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-use async_trait::async_trait;
-use axum::{
-=======
-use axum::{
-    async_trait,
->>>>>>> 921251a (fetch)
     extract::FromRequestParts,
     http::{request::Parts, StatusCode},
 };
@@ -21,11 +14,6 @@ pub struct Claims {
     pub roles: Vec<String>,
 }
 
-<<<<<<< HEAD
-#[derive(Clone)]
-=======
-#[derive(Debug, Clone)]
->>>>>>> 921251a (fetch)
 pub struct JwtAuth {
     encoding_key: EncodingKey,
     decoding_key: DecodingKey,

@@ -1,103 +1,96 @@
 use axum::{
-    extract::{Multipart, Path, Query, State},
-    response::Json,
-    routing::{delete, get, post},
-    Router,
+    extract::{Path, State},
+    http::StatusCode,
+    Json,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
     auth::AuthUser,
-    core::{error::DocumentError, AppState},
+    core::{error::AppError, AppState},
     db::documents::DocumentRepository,
     models::document::{Document, DocumentMetadata, DocumentStatus},
 };
 
 #[derive(Debug, Deserialize)]
-pub struct ListDocumentsQuery {
-    pub offset: Option<i64>,
-    pub limit: Option<i64>,
-    pub status: Option<DocumentStatus>,
+pub struct CreateDocumentRequest {
+    pub title: String,
+    pub content: String,
+    pub metadata: Option<DocumentMetadata>,
 }
 
-pub fn routes() -> Router<AppState> {
-    Router::new()
-        .route("/", post(upload_document))
-        .route("/", get(list_documents))
-        .route("/:id", get(get_document))
-        .route("/:id", delete(delete_document))
+#[derive(Debug, Serialize)]
+pub struct DocumentResponse {
+    pub id: Uuid,
+    pub title: String,
+    pub status: DocumentStatus,
+    pub metadata: Option<DocumentMetadata>,
 }
 
-async fn upload_document(
-    State(state): State<AppState>,
-    _auth: AuthUser,
-    mut multipart: Multipart,
-) -> Result<Json<Document>, DocumentError> {
-    let mut file_data = Vec::new();
-    let mut metadata = DocumentMetadata::default();
-    let mut name = String::new();
-    let mut content_type = String::new();
-
-    while let Some(field) = multipart.next_field().await? {
-        let field_name = field.name().unwrap_or("").to_string();
-        match field_name.as_str() {
-            "file" => {
-                name = field.file_name().unwrap_or("").to_string();
-                content_type = field.content_type().unwrap_or("").to_string();
-                file_data = field.bytes().await?.to_vec();
-            }
-            "metadata" => {
-                let metadata_str = String::from_utf8(field.bytes().await?.to_vec())?;
-                metadata = serde_json::from_str(&metadata_str)?;
-            }
-            _ => {}
-        }
-    }
-
+pub async fn create_document(
+    State(db): State<PgPool>,
+    auth_user: AuthUser,
+    Json(payload): Json<CreateDocumentRequest>,
+) -> Result<(StatusCode, Json<DocumentResponse>), AppError> {
     let document = Document::new(
-        name,
-        content_type,
-        file_data.len() as i64,
-        format!("documents/{}", Uuid::new_v4()),
-        Some(metadata),
+        payload.title,
+        payload.content,
+        auth_user.id,
+        payload.metadata,
     );
 
-    let document = DocumentRepository::create_document(&state.db, &document).await?;
+    let repo = DocumentRepository::new(&db);
+    let saved_doc = repo.create(document).await?;
 
-    Ok(Json(document))
+    Ok((
+        StatusCode::CREATED,
+        Json(DocumentResponse {
+            id: saved_doc.id,
+            title: saved_doc.title,
+            status: saved_doc.status,
+            metadata: saved_doc.metadata,
+        }),
+    ))
 }
 
-async fn list_documents(
-    State(state): State<AppState>,
-    _auth: AuthUser,
-    Query(query): Query<ListDocumentsQuery>,
-) -> Result<Json<Vec<Document>>, DocumentError> {
-    let documents = DocumentRepository::list_documents(
-        &state.db,
-        query.offset.unwrap_or(0),
-        query.limit.unwrap_or(10),
-        query.status,
-    )
-    .await?;
+pub async fn get_document(
+    State(db): State<PgPool>,
+    auth_user: AuthUser,
+    Path(id): Path<Uuid>,
+) -> Result<Json<DocumentResponse>, AppError> {
+    let repo = DocumentRepository::new(&db);
+    let doc = repo.get_by_id(id).await?;
 
-    Ok(Json(documents))
+    if doc.user_id != auth_user.id {
+        return Err(AppError::AuthenticationError);
+    }
+
+    Ok(Json(DocumentResponse {
+        id: doc.id,
+        title: doc.title,
+        status: doc.status,
+        metadata: doc.metadata,
+    }))
 }
 
-async fn get_document(
-    State(state): State<AppState>,
-    _auth: AuthUser,
-    Path(id): Path<String>,
-) -> Result<Json<Document>, DocumentError> {
-    let document = DocumentRepository::get_document(&state.db, &id).await?;
-    Ok(Json(document))
-}
+pub async fn list_documents(
+    State(db): State<PgPool>,
+    auth_user: AuthUser,
+) -> Result<Json<Vec<DocumentResponse>>, AppError> {
+    let repo = DocumentRepository::new(&db);
+    let docs = repo.list_by_user(auth_user.id).await?;
 
-async fn delete_document(
-    State(state): State<AppState>,
-    _auth: AuthUser,
-    Path(id): Path<String>,
-) -> Result<Json<()>, DocumentError> {
-    DocumentRepository::delete_document(&state.db, &id).await?;
-    Ok(Json(()))
+    let responses = docs
+        .into_iter()
+        .map(|doc| DocumentResponse {
+            id: doc.id,
+            title: doc.title,
+            status: doc.status,
+            metadata: doc.metadata,
+        })
+        .collect();
+
+    Ok(Json(responses))
 }

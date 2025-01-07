@@ -3,11 +3,6 @@ use sqlx::PgPool;
 
 pub mod error;
 
-<<<<<<< HEAD
-#[derive(Debug, Clone)]
-=======
-#[derive(Debug, Clone, Serialize, Deserialize)]
->>>>>>> 921251a (fetch)
 pub struct AppState {
     pub db: PgPool,
     pub storage: StorageConfig,

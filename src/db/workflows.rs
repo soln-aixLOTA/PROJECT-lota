@@ -1,17 +1,6 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-<<<<<<< HEAD
-use crate::core::error::{DocumentError, DocumentResult};
-use crate::models::workflow::{
-    ExecutionStep, StepStatus, StepType, Workflow, WorkflowExecution, WorkflowMetadata,
-    WorkflowStatus, WorkflowStep,
-=======
-use crate::core::error::DocumentResult;
-use crate::models::workflow::{
-    ExecutionStep, StepStatus, StepType, Workflow, WorkflowExecution, WorkflowMetadata,
-    WorkflowStatus,
->>>>>>> 921251a (fetch)
 };
 
 #[derive(Debug, Clone)]
@@ -33,11 +22,6 @@ impl WorkflowRepository {
             workflow.description,
             workflow.status as WorkflowStatus,
             workflow.creator,
-<<<<<<< HEAD
-            serde_json::to_value(&workflow.metadata)?,
-=======
-            workflow.metadata as serde_json::Value,
->>>>>>> 921251a (fetch)
             workflow.created_at,
             workflow.updated_at,
         )
@@ -47,11 +31,6 @@ impl WorkflowRepository {
         Ok(Workflow {
             id: record.id,
             name: record.name,
-<<<<<<< HEAD
-            description: record.description.unwrap_or_default(),
-=======
-            description: record.description,
->>>>>>> 921251a (fetch)
             status: record.status.parse()?,
             creator: record.creator,
             metadata: serde_json::from_value(record.metadata)?,
@@ -78,11 +57,6 @@ impl WorkflowRepository {
             step.name,
             step.step_type as StepType,
             step.order,
-<<<<<<< HEAD
-            step.config,
-=======
-            step.config as serde_json::Value,
->>>>>>> 921251a (fetch)
             step.created_at,
             step.updated_at,
         )
@@ -118,11 +92,6 @@ impl WorkflowRepository {
         Ok(Workflow {
             id: record.id,
             name: record.name,
-<<<<<<< HEAD
-            description: record.description.unwrap_or_default(),
-=======
-            description: record.description,
->>>>>>> 921251a (fetch)
             status: record.status.parse()?,
             creator: record.creator,
             metadata: serde_json::from_value(record.metadata)?,
@@ -227,12 +196,6 @@ impl WorkflowRepository {
             "#,
             status as Option<WorkflowStatus>,
             offset,
-<<<<<<< HEAD
-            limit
-=======
-            limit,
-            status as _
->>>>>>> 921251a (fetch)
         )
         .fetch_all(pool)
         .await?;
@@ -242,13 +205,6 @@ impl WorkflowRepository {
             workflows.push(Workflow {
                 id: record.id,
                 name: record.name,
-<<<<<<< HEAD
-                description: record.description.unwrap_or_default(),
-                status: record.status.parse()?,
-=======
-                description: record.description,
-                status: record.status.parse().unwrap(),
->>>>>>> 921251a (fetch)
                 creator: record.creator,
                 metadata: serde_json::from_value(record.metadata)?,
                 created_at: record.created_at,

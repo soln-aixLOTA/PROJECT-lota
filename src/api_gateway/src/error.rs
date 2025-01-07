@@ -52,29 +52,12 @@ pub struct ErrorResponse {
 
 impl ResponseError for ApiError {
     fn error_response(&self) -> HttpResponse {
-<<<<<<< HEAD
-        let status = self.status_code();
-=======
-        let status_code = self.status_code();
->>>>>>> 921251a (fetch)
         let error_response = ErrorResponse {
             error: self.error_type(),
             message: self.to_string(),
             details: self.error_details(),
         };
 
-<<<<<<< HEAD
-        HttpResponse::build(status)
-=======
-        error!(
-            error.type = %error_response.error,
-            error.message = %error_response.message,
-            error.status_code = %status_code.as_u16(),
-            "API error occurred"
-        );
-
-        HttpResponse::build(status_code)
->>>>>>> 921251a (fetch)
             .insert_header(ContentType::json())
             .json(error_response)
     }
@@ -98,29 +81,6 @@ impl ResponseError for ApiError {
 impl ApiError {
     fn error_type(&self) -> String {
         match self {
-<<<<<<< HEAD
-            ApiError::AuthenticationError(_) => "AUTHENTICATION_ERROR",
-            ApiError::AuthorizationError(_) => "AUTHORIZATION_ERROR",
-            ApiError::ValidationError(_) => "VALIDATION_ERROR",
-            ApiError::RateLimitError(_) => "RATE_LIMIT_ERROR",
-            ApiError::InternalServerError => "INTERNAL_SERVER_ERROR",
-            ApiError::BadRequest(_) => "BAD_REQUEST",
-            ApiError::NotFound(_) => "NOT_FOUND",
-            ApiError::ServiceError(_) => "SERVICE_ERROR",
-            ApiError::DatabaseError(_) => "DATABASE_ERROR",
-            ApiError::ExternalServiceError(_) => "EXTERNAL_SERVICE_ERROR",
-=======
-            ApiError::AuthenticationError(_) => "authentication_error",
-            ApiError::AuthorizationError(_) => "authorization_error",
-            ApiError::ValidationError(_) => "validation_error",
-            ApiError::RateLimitError(_) => "rate_limit_error",
-            ApiError::InternalServerError => "internal_server_error",
-            ApiError::BadRequest(_) => "bad_request",
-            ApiError::NotFound(_) => "not_found",
-            ApiError::ServiceError(_) => "service_error",
-            ApiError::DatabaseError(_) => "database_error",
-            ApiError::ExternalServiceError(_) => "external_service_error",
->>>>>>> 921251a (fetch)
         }
         .to_string()
     }
@@ -128,60 +88,6 @@ impl ApiError {
     fn error_details(&self) -> Option<serde_json::Value> {
         match self {
             ApiError::ValidationError(msg) => Some(json!({
-<<<<<<< HEAD
-                "validation_message": msg,
-                "error_code": "400"
-            })),
-            ApiError::DatabaseError(msg) => Some(json!({
-                "database_message": msg,
-                "error_code": "500"
-            })),
-            ApiError::ExternalServiceError(msg) => Some(json!({
-                "service_message": msg,
-                "error_code": "502"
-            })),
-            ApiError::RateLimitError(msg) => Some(json!({
-                "rate_limit_info": msg,
-                "error_code": "429"
-            })),
-            ApiError::AuthenticationError(msg) => Some(json!({
-                "auth_error": msg,
-                "error_code": "401"
-            })),
-            ApiError::AuthorizationError(msg) => Some(json!({
-                "permission_error": msg,
-                "error_code": "403"
-            })),
-            ApiError::ServiceError(msg) => Some(json!({
-                "service_status": msg,
-                "error_code": "503"
-            })),
-            ApiError::NotFound(msg) => Some(json!({
-                "resource": msg,
-                "error_code": "404"
-            })),
-            ApiError::BadRequest(msg) => Some(json!({
-                "request_error": msg,
-                "error_code": "400"
-            })),
-            ApiError::InternalServerError => Some(json!({
-                "error_code": "500"
-            })),
-=======
-                "validation_errors": [msg]
-            })),
-            ApiError::RateLimitError(msg) => Some(json!({
-                "retry_after": 60, // Example value
-                "limit_info": msg
-            })),
-            ApiError::ServiceError(msg) => Some(json!({
-                "service_info": msg
-            })),
-            ApiError::ExternalServiceError(msg) => Some(json!({
-                "service_info": msg
-            })),
-            _ => None,
->>>>>>> 921251a (fetch)
         }
     }
 }
@@ -189,14 +95,6 @@ impl ApiError {
 impl From<sqlx::Error> for ApiError {
     fn from(error: sqlx::Error) -> Self {
         error!(?error, "Database error occurred");
-<<<<<<< HEAD
-        match error {
-            sqlx::Error::RowNotFound => ApiError::NotFound("Resource not found".to_string()),
-            _ => ApiError::DatabaseError(error.to_string()),
-        }
-=======
-        ApiError::DatabaseError(error.to_string())
->>>>>>> 921251a (fetch)
     }
 }
 
@@ -225,10 +123,6 @@ impl From<serde_json::Error> for ApiError {
 mod tests {
     use super::*;
     use actix_web::test;
-<<<<<<< HEAD
-    use serde_json::Value;
-=======
->>>>>>> 921251a (fetch)
 
     #[test]
     fn test_error_response() {
@@ -255,123 +149,5 @@ mod tests {
             serde_json::Error::syntax(serde_json::error::ErrorCode::ExpectedColon, 0, 0);
         let api_error: ApiError = json_error.into();
         assert!(matches!(api_error, ApiError::BadRequest(_)));
-<<<<<<< HEAD
-
-        let db_error = sqlx::Error::RowNotFound;
-        let api_error: ApiError = db_error.into();
-        assert!(matches!(api_error, ApiError::NotFound(_)));
-    }
-
-    #[test]
-    fn test_error_details() {
-        // Test validation error details
-        let error = ApiError::ValidationError("Invalid email".to_string());
-        let details = error.error_details().unwrap();
-        assert_eq!(details["error_code"], "400");
-        assert_eq!(details["validation_message"], "Invalid email");
-
-        // Test rate limit error details
-        let error = ApiError::RateLimitError("Rate limit exceeded".to_string());
-        let details = error.error_details().unwrap();
-        assert_eq!(details["error_code"], "429");
-        assert_eq!(details["rate_limit_info"], "Rate limit exceeded");
-
-        // Test database error details
-        let error = ApiError::DatabaseError("Connection failed".to_string());
-        let details = error.error_details().unwrap();
-        assert_eq!(details["error_code"], "500");
-        assert_eq!(details["database_message"], "Connection failed");
-    }
-
-    #[test]
-    fn test_error_response_format() {
-        // Test complete error response format
-        let error = ApiError::ValidationError("test error".to_string());
-        let response = error.error_response();
-
-        // Convert the response body to a Value for easy testing
-        let body = test::read_body(response);
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        let json: Value = serde_json::from_str(&body_str).unwrap();
-
-        assert_eq!(json["error"], "VALIDATION_ERROR");
-        assert_eq!(json["message"], "Validation error: test error");
-        assert_eq!(json["details"]["validation_message"], "test error");
-        assert_eq!(json["details"]["error_code"], "400");
-    }
-
-    #[test]
-    fn test_status_codes() {
-        let test_cases = vec![
-            (
-                ApiError::AuthenticationError("test".into()),
-                StatusCode::UNAUTHORIZED,
-            ),
-            (
-                ApiError::AuthorizationError("test".into()),
-                StatusCode::FORBIDDEN,
-            ),
-            (
-                ApiError::ValidationError("test".into()),
-                StatusCode::BAD_REQUEST,
-            ),
-            (
-                ApiError::RateLimitError("test".into()),
-                StatusCode::TOO_MANY_REQUESTS,
-            ),
-            (
-                ApiError::InternalServerError,
-                StatusCode::INTERNAL_SERVER_ERROR,
-            ),
-            (ApiError::BadRequest("test".into()), StatusCode::BAD_REQUEST),
-            (ApiError::NotFound("test".into()), StatusCode::NOT_FOUND),
-            (
-                ApiError::ServiceError("test".into()),
-                StatusCode::SERVICE_UNAVAILABLE,
-            ),
-            (
-                ApiError::DatabaseError("test".into()),
-                StatusCode::INTERNAL_SERVER_ERROR,
-            ),
-            (
-                ApiError::ExternalServiceError("test".into()),
-                StatusCode::BAD_GATEWAY,
-            ),
-        ];
-
-        for (error, expected_status) in test_cases {
-            assert_eq!(error.status_code(), expected_status);
-        }
-    }
-
-    #[test]
-    fn test_error_type_strings() {
-        let test_cases = vec![
-            (
-                ApiError::AuthenticationError("test".into()),
-                "AUTHENTICATION_ERROR",
-            ),
-            (
-                ApiError::AuthorizationError("test".into()),
-                "AUTHORIZATION_ERROR",
-            ),
-            (ApiError::ValidationError("test".into()), "VALIDATION_ERROR"),
-            (ApiError::RateLimitError("test".into()), "RATE_LIMIT_ERROR"),
-            (ApiError::InternalServerError, "INTERNAL_SERVER_ERROR"),
-            (ApiError::BadRequest("test".into()), "BAD_REQUEST"),
-            (ApiError::NotFound("test".into()), "NOT_FOUND"),
-            (ApiError::ServiceError("test".into()), "SERVICE_ERROR"),
-            (ApiError::DatabaseError("test".into()), "DATABASE_ERROR"),
-            (
-                ApiError::ExternalServiceError("test".into()),
-                "EXTERNAL_SERVICE_ERROR",
-            ),
-        ];
-
-        for (error, expected_type) in test_cases {
-            assert_eq!(error.error_type(), expected_type);
-        }
-=======
->>>>>>> 921251a (fetch)
     }
 }
