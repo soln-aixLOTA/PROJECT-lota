@@ -3,12 +3,11 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
-pub struct Document {
+pub struct User {
     pub id: Uuid,
-    pub user_id: Uuid,
-    pub title: String,
-    pub content: Option<String>,
-    pub file_path: Option<String>,
+    pub username: String,
+    #[serde(skip_serializing)]
+    pub password_hash: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-}
+} 

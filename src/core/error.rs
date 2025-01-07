@@ -1,89 +1,66 @@
-use axum::{
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    Json,
-};
+use actix_web::{error::ResponseError, HttpResponse};
+use base64::DecodeError;
 use serde_json::json;
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use sqlx::error::Error as SqlxError;
+use thiserror::Error;
 
-#[derive(Debug)]
-pub enum DocumentError {
+pub type AppResult<T> = Result<T, AppError>;
+
+#[derive(Debug, Error)]
+pub enum AppError {
+    #[error("Database error: {0}")]
+    Database(String),
+
+    #[error("Storage error: {0}")]
+    Storage(String),
+
+    #[error("Authentication error: {0}")]
+    Auth(String),
+
+    #[error("Internal error: {0}")]
+    Internal(String),
+
+    #[error("Not found: {0}")]
     NotFound(String),
-    ValidationError(String),
-    AuthenticationError(String),
-    AuthorizationError(String),
-    DatabaseError(String),
-    StorageError(String),
-    SerializationError(String),
-    InternalError(String),
+
+    #[error("Bad request: {0}")]
+    BadRequest(String),
 }
 
-impl Display for DocumentError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self {
-            DocumentError::NotFound(msg) => write!(f, "Not found: {}", msg),
-            DocumentError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
-            DocumentError::AuthenticationError(msg) => write!(f, "Authentication error: {}", msg),
-            DocumentError::AuthorizationError(msg) => write!(f, "Authorization error: {}", msg),
-            DocumentError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
-            DocumentError::StorageError(msg) => write!(f, "Storage error: {}", msg),
-            DocumentError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
-            DocumentError::InternalError(msg) => write!(f, "Internal error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for DocumentError {}
-
-impl IntoResponse for DocumentError {
-    fn into_response(self) -> Response {
-        let (status, error_message) = match self {
-            DocumentError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
-            DocumentError::ValidationError(msg) => (StatusCode::BAD_REQUEST, msg),
-            DocumentError::AuthenticationError(msg) => (StatusCode::UNAUTHORIZED, msg),
-            DocumentError::AuthorizationError(msg) => (StatusCode::FORBIDDEN, msg),
-            DocumentError::DatabaseError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
-            DocumentError::StorageError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
-            DocumentError::SerializationError(msg) => (StatusCode::BAD_REQUEST, msg),
-            DocumentError::InternalError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
-        };
-
-        let body = Json(json!({
-            "error": {
-                "message": error_message,
-                "code": status.as_u16()
-            }
-        }));
-
-        (status, body).into_response()
-    }
-}
-
-impl From<sqlx::Error> for DocumentError {
-    fn from(err: sqlx::Error) -> Self {
+impl From<SqlxError> for AppError {
+    fn from(err: SqlxError) -> Self {
         match err {
-            sqlx::Error::RowNotFound => DocumentError::NotFound("Resource not found".to_string()),
-            _ => DocumentError::DatabaseError(err.to_string()),
+            SqlxError::RowNotFound => AppError::NotFound("Resource not found".to_string()),
+            _ => AppError::Database(err.to_string()),
         }
     }
 }
 
-impl From<serde_json::Error> for DocumentError {
-    fn from(err: serde_json::Error) -> Self {
-        DocumentError::SerializationError(err.to_string())
+impl From<DecodeError> for AppError {
+    fn from(err: DecodeError) -> Self {
+        AppError::BadRequest(format!("Invalid base64: {}", err))
     }
 }
 
-impl From<std::string::FromUtf8Error> for DocumentError {
-    fn from(err: std::string::FromUtf8Error) -> Self {
-        DocumentError::SerializationError(err.to_string())
+impl ResponseError for AppError {
+    fn error_response(&self) -> HttpResponse {
+        match self {
+            AppError::Database(_) => {
+                HttpResponse::InternalServerError().json(json!({ "error": self.to_string() }))
+            }
+            AppError::Storage(_) => {
+                HttpResponse::InternalServerError().json(json!({ "error": self.to_string() }))
+            }
+            AppError::Auth(_) => HttpResponse::Unauthorized().json(json!({ "error": self.to_string() })),
+            AppError::Internal(_) => {
+                HttpResponse::InternalServerError().json(json!({ "error": self.to_string() }))
+            }
+            AppError::NotFound(_) => {
+                HttpResponse::NotFound().json(json!({ "error": self.to_string() }))
+            }
+            AppError::BadRequest(_) => {
+                HttpResponse::BadRequest().json(json!({ "error": self.to_string() }))
+            }
+        }
     }
 }
-
-impl From<uuid::Error> for DocumentError {
-    fn from(err: uuid::Error) -> Self {
-        DocumentError::ValidationError(err.to_string())
-    }
-}
-
-pub type DocumentResult<T> = Result<T, DocumentError>;

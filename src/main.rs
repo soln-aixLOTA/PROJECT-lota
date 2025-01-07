@@ -1,49 +1,56 @@
-use actix_web::{App, HttpServer};
-use axum::{
-    routing::{get, post},
-    Router,
-};
-use handlers::configure_routes;
-use logging::init_logger;
-use sqlx::PgPool;
 use std::sync::Arc;
-use storage::{LocalStorage, StorageProvider};
+use actix_web::{web, App, HttpServer};
+use dotenv::dotenv;
+use sqlx::postgres::PgPoolOptions;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-mod errors;
+mod auth;
+mod core;
+mod db;
 mod handlers;
-mod logging;
 mod middleware;
-mod resource_management;
+mod models;
+mod storage;
 
-pub struct AppState {
-    db: PgPool,
-    storage: StorageProvider,
-}
-
-impl AppState {
-    pub fn new(db: PgPool, storage: StorageProvider) -> Self {
-        Self { db, storage }
-    }
-}
+use crate::core::AppState;
+use crate::handlers::configure_routes;
+use crate::storage::LocalStorage;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    init_logger();
+    // Load environment variables
+    dotenv().ok();
 
-    let db = PgPool::connect("postgres://postgres:postgres@localhost/document_automation").await?;
-    let storage = StorageProvider::Local(LocalStorage::new("./storage"));
+    // Initialize logging
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
-    let state = Arc::new(AppState::new(db, storage));
+    // Database connection
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&database_url)
+        .await
+        .expect("Failed to create pool");
 
-    let app = Router::new()
-        .route("/health", get(|| async { "OK" }))
-        .with_state(state);
+    // Initialize storage
+    let storage = Arc::new(LocalStorage::new("./storage"));
 
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 3000));
-    println!("Listening on {}", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await?;
+    // Create app state
+    let state = web::Data::new(AppState::new(pool, storage));
 
-    Ok(())
+    // Start server
+    HttpServer::new(move || {
+        App::new()
+            .app_data(state.clone())
+            .wrap(tracing_actix_web::TracingLogger::default())
+            .configure(configure_routes)
+    })
+    .bind(("0.0.0.0", 8080))?
+    .run()
+    .await
 }

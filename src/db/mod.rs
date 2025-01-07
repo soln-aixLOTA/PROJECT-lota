@@ -5,6 +5,7 @@ use crate::core::error::{DocumentError, DocumentResult};
 use crate::core::DatabaseConfig;
 
 pub mod documents;
+pub mod users;
 pub mod workflows;
 
 pub use documents::DocumentRepository;

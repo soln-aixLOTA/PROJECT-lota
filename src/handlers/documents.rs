@@ -1,96 +1,59 @@
-use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    Json,
-};
+use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{
-    auth::AuthUser,
-    core::{error::AppError, AppState},
-    db::documents::DocumentRepository,
-    models::document::{Document, DocumentMetadata, DocumentStatus},
-};
+use crate::auth::Claims;
+use crate::core::AppState;
+use crate::core::error::AppResult;
+use crate::db::documents;
+use crate::models::document::Document;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateDocumentRequest {
     pub title: String,
-    pub content: String,
-    pub metadata: Option<DocumentMetadata>,
+    pub content: Option<String>,
+    pub file: Option<String>, // Base64 encoded file content
 }
 
 #[derive(Debug, Serialize)]
-pub struct DocumentResponse {
-    pub id: Uuid,
-    pub title: String,
-    pub status: DocumentStatus,
-    pub metadata: Option<DocumentMetadata>,
+pub struct CreateDocumentResponse {
+    pub document: Document,
 }
 
 pub async fn create_document(
-    State(db): State<PgPool>,
-    auth_user: AuthUser,
-    Json(payload): Json<CreateDocumentRequest>,
-) -> Result<(StatusCode, Json<DocumentResponse>), AppError> {
-    let document = Document::new(
-        payload.title,
-        payload.content,
-        auth_user.id,
-        payload.metadata,
-    );
+    state: web::Data<AppState>,
+    claims: web::ReqData<Claims>,
+    req: web::Json<CreateDocumentRequest>,
+) -> AppResult<HttpResponse> {
+    let file_path = match &req.file {
+        Some(file_content) => {
+            // Save file to storage
+            let file_path = state
+                .storage
+                .save_file(&req.title, base64::decode(file_content)?)
+                .await?;
+            Some(file_path)
+        }
+        None => None,
+    };
 
-    let repo = DocumentRepository::new(&db);
-    let saved_doc = repo.create(document).await?;
+    let document = documents::create_document(
+        &state.db,
+        claims.sub,
+        req.title.clone(),
+        req.content.clone(),
+        file_path,
+    )
+    .await?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(DocumentResponse {
-            id: saved_doc.id,
-            title: saved_doc.title,
-            status: saved_doc.status,
-            metadata: saved_doc.metadata,
-        }),
-    ))
+    Ok(HttpResponse::Created().json(CreateDocumentResponse { document }))
 }
 
 pub async fn get_document(
-    State(db): State<PgPool>,
-    auth_user: AuthUser,
-    Path(id): Path<Uuid>,
-) -> Result<Json<DocumentResponse>, AppError> {
-    let repo = DocumentRepository::new(&db);
-    let doc = repo.get_by_id(id).await?;
-
-    if doc.user_id != auth_user.id {
-        return Err(AppError::AuthenticationError);
-    }
-
-    Ok(Json(DocumentResponse {
-        id: doc.id,
-        title: doc.title,
-        status: doc.status,
-        metadata: doc.metadata,
-    }))
-}
-
-pub async fn list_documents(
-    State(db): State<PgPool>,
-    auth_user: AuthUser,
-) -> Result<Json<Vec<DocumentResponse>>, AppError> {
-    let repo = DocumentRepository::new(&db);
-    let docs = repo.list_by_user(auth_user.id).await?;
-
-    let responses = docs
-        .into_iter()
-        .map(|doc| DocumentResponse {
-            id: doc.id,
-            title: doc.title,
-            status: doc.status,
-            metadata: doc.metadata,
-        })
-        .collect();
-
-    Ok(Json(responses))
+    state: web::Data<AppState>,
+    claims: web::ReqData<Claims>,
+    path: web::Path<Uuid>,
+) -> AppResult<HttpResponse> {
+    let document = documents::get_document(&state.db, path.into_inner(), claims.sub).await?;
+    Ok(HttpResponse::Ok().json(document))
 }
