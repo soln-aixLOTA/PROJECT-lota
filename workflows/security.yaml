@@ -1,0 +1,140 @@
+name: Security Scan
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight
+  workflow_dispatch:  # Allow manual triggering
+  push:
+    branches: [ main ]
+    paths:
+      - 'ai-services/**'
+      - 'k8s/**'
+      - '.github/workflows/**'
+
+jobs:
+  codeql-scan:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    strategy:
+      matrix:
+        language: ['python', 'rust']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+  dependency-scan:
+    name: Dependency Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python dependency scan
+        uses: snyk/actions/python@master
+        with:
+          args: --severity-threshold=high
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Rust dependency scan
+        uses: snyk/actions/cargo@master
+        with:
+          args: --severity-threshold=high
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  k8s-security:
+    name: Kubernetes Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run kubesec
+        uses: controlplaneio/kubesec-action@master
+        with:
+          input: k8s/base/*.yaml
+          fail-threshold: warning
+
+      - name: Run kube-score
+        uses: piraces/kube-score-action@v1
+        with:
+          files: k8s/base/*.yaml
+          output-format: ci
+
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  container-scan:
+    name: Container Image Scan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [preprocessing, training, inference, attestation]
+    steps:
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image: ghcr.io/${{ github.repository }}-${{ matrix.service }}:latest
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  compliance-check:
+    name: Compliance Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: k8s/
+          framework: kubernetes
+          output_format: cli
+          quiet: true
+          soft_fail: false
+
+  report:
+    name: Generate Security Report
+    needs: [codeql-scan, dependency-scan, k8s-security, secret-scan, container-scan, compliance-check]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate report
+        run: |
+          echo "Security scan completed successfully"
+          # Add report generation logic here
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Security Scan Failed',
+              body: 'Security scan failed. Please check the workflow logs for details.'
+            }) 

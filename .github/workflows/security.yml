@@ -1,0 +1,106 @@
+name: Security Scan
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Run daily at midnight
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl pkg-config libssl-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Install Rust and security tools
+        run: |
+          # Install Rust
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source "$HOME/.cargo/env"
+
+          # Install cargo-audit
+          cargo install cargo-audit
+
+          # Install Trivy
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.45.1
+
+      - name: Run cargo-audit
+        run: |
+          source "$HOME/.cargo/env"
+          cargo audit
+
+      - name: Run Trivy scan
+        run: |
+          trivy fs --security-checks vuln,config,secret .
+
+      - name: Install CodeQL CLI
+        run: |
+          curl -LO https://github.com/github/codeql-cli-binaries/releases/download/v2.15.5/codeql-linux64.zip
+          unzip codeql-linux64.zip
+          sudo mv codeql /usr/local/bin/
+          rm codeql-linux64.zip
+
+      - name: Create CodeQL database
+        run: |
+          codeql database create codeql-db --language=rust --source-root .
+
+      - name: Analyze CodeQL database
+        run: |
+          codeql database analyze codeql-db \
+            --format=sarif-latest \
+            --output=codeql-results.sarif \
+            "rust-security-and-quality"
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - uses: actions/checkout@v4
+
+      - name: Review Dependencies
+        run: |
+          # Get dependencies from Cargo.lock
+          if [ -f Cargo.lock ]; then
+            jq -r '.package[] | select(.source != null) | "\(.name)@\(.version)"' Cargo.lock > dependencies.txt
+            
+            # Check each dependency against OSV database
+            while IFS=@ read -r name version; do
+              echo "Checking $name version $version"
+              curl -s "https://api.osv.dev/v1/query" \
+                -H "Content-Type: application/json" \
+                -d "{\"version\": \"$version\", \"package\": {\"name\": \"$name\", \"ecosystem\": \"crates.io\"}}" | \
+                jq -r '.vulns[]?.id'
+            done < dependencies.txt
+          fi
+
+  notify:
+    name: Notify Security Issues
+    needs: [security-scan, dependency-review]
+    runs-on: ubuntu-latest
+    if: failure()
+
+    steps:
+      - name: Install curl
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - name: Send notification
+        run: |
+          curl -X POST -H "Content-type: application/json" \
+               -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+               -d "{\"channel\":\"${{ secrets.SECURITY_SLACK_CHANNEL_ID }}\",\"text\":\"🚨 Security scan detected issues! Please check the workflow results.\"}" \
+               https://slack.com/api/chat.postMessage

@@ -1,0 +1,63 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/docker-existing-docker-compose
+{
+  "name": "Document Automation Dev Container",
+
+  // Update the 'dockerComposeFile' list if you have more compose files or use different names.
+  "dockerComposeFile": ["docker-compose.yml"],
+
+  // The 'service' property is the name of the service for the container that VS Code should
+  // use. Update this value and .devcontainer/docker-compose.yml to the real service name.
+  "service": "app",
+
+  // Use a simpler workspace path to avoid character encoding issues
+  "workspaceFolder": "/workspace",
+
+  // Features to add to the dev container. More info: https://containers.dev/features.
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "latest",
+      "profile": "default"
+    },
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  "forwardPorts": [8080, 5434, 3000, 9090],
+
+  // Uncomment the next line if you want start specific services in your Docker Compose config.
+  // "runServices": [],
+
+  // Uncomment the next line if you want to keep your containers running after VS Code shuts down.
+  "shutdownAction": "stopCompose",
+
+  // Uncomment the next line to run commands after the container is created.
+  "postCreateCommand": "rustc --version && cargo --version",
+
+  // Configure tool-specific properties.
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "serayuzgur.crates",
+        "vadimcn.vscode-lldb",
+        "tamasfe.even-better-toml",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "rust-analyzer.checkOnSave.command": "clippy",
+        "editor.formatOnSave": true
+      }
+    }
+  },
+
+  // Uncomment to connect as an existing user other than the container default. More info: https://aka.ms/dev-containers-non-root.
+  "remoteUser": "vscode",
+
+  // Modify initialize command to be more robust
+  "initializeCommand": "docker-compose down --remove-orphans",
+
+  // Add updateRemoteUserUID
+  "updateRemoteUserUID": true
+}

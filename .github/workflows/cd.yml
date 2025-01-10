@@ -1,0 +1,180 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: lotabots
+  DEPLOYMENT_TIMEOUT: "5m"
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Validate version tag
+        run: |
+          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version tag format. Must be vX.Y.Z"
+            exit 1
+          fi
+
+      - name: Check changelog
+        run: |
+          if ! grep -q "${{ github.ref_name }}" CHANGELOG.md; then
+            echo "Version ${{ github.ref_name }} not found in CHANGELOG.md"
+            exit 1
+          fi
+
+  deploy:
+    name: Build and Deploy
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          buildkitd-flags: --debug
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/attestation
+            ${{ env.REGISTRY }}/${{ github.repository }}/api_gateway
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha
+
+      - name: Build and push Attestation image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: src/attestation/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          provenance: true
+          sbom: true
+
+      - name: Build and push API Gateway image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: src/api_gateway/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          provenance: true
+          sbom: true
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v1
+        with:
+          version: "v1.24.0"
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" > kubeconfig.yaml
+          chmod 600 kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+
+      - name: Save current deployment state
+        run: |
+          mkdir -p .kube-state
+          for service in attestation api_gateway; do
+            kubectl get deployment $service -n ${{ env.NAMESPACE }} -o yaml > .kube-state/$service.yaml || true
+          done
+
+      - name: Deploy to Kubernetes
+        id: deploy
+        run: |
+          VERSION=${{ github.ref_name }}
+          
+          # Update image tags in deployment files
+          for service in attestation api_gateway; do
+            sed "s|IMAGE_TAG|$VERSION|g" k8s/$service/deployment.yaml | kubectl apply -f -
+          done
+          
+          # Apply other resources
+          kubectl apply -f k8s/common/
+          find k8s/*/service.yaml -exec kubectl apply -f {} \;
+          
+          # Wait for deployments to be ready
+          kubectl wait --for=condition=available --timeout=${{ env.DEPLOYMENT_TIMEOUT }} deployment --all -n ${{ env.NAMESPACE }}
+
+      - name: Verify Deployment
+        run: |
+          # Check deployment status
+          kubectl get pods,services,deployments -n ${{ env.NAMESPACE }}
+          
+          # Verify endpoints are responding
+          for service in attestation api_gateway; do
+            kubectl rollout status deployment/$service -n ${{ env.NAMESPACE }} --timeout=${{ env.DEPLOYMENT_TIMEOUT }}
+            
+            # Get service endpoint
+            ENDPOINT=$(kubectl get service $service -n ${{ env.NAMESPACE }} -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
+            PORT=$(kubectl get service $service -n ${{ env.NAMESPACE }} -o jsonpath="{.spec.ports[0].port}")
+            
+            # Check health endpoint
+            curl -f "http://$ENDPOINT:$PORT/health" || exit 1
+          done
+
+      - name: Rollback on failure
+        if: failure() && steps.deploy.outcome == 'failure'
+        run: |
+          echo "Deployment failed, rolling back..."
+          for service in attestation api_gateway; do
+            if [ -f .kube-state/$service.yaml ]; then
+              kubectl apply -f .kube-state/$service.yaml
+              kubectl rollout status deployment/$service -n ${{ env.NAMESPACE }} --timeout=${{ env.DEPLOYMENT_TIMEOUT }}
+            fi
+          done
+
+      - name: Clean up
+        if: always()
+        run: |
+          rm -f kubeconfig.yaml
+          rm -rf .kube-state
+
+      - name: Notify on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.18.0
+        with:
+          channel-id: 'deployments'
+          slack-message: "Deployment of ${{ github.ref_name }} failed! Check the logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

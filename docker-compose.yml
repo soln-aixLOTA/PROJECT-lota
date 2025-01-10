@@ -1,0 +1,83 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-dev_user}:${DB_PASSWORD:-dev_password}@db:5432/${DB_NAME:-document_automation_dev}
+      - JWT_SECRET=${JWT_SECRET:-development_secret_key}
+      - RUST_LOG=info
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - document-automation
+
+  db:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_USER=${DB_USER:-dev_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-dev_password}
+      - POSTGRES_DB=${DB_NAME:-document_automation_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    networks:
+      - document-automation
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./config/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    ports:
+      - "9090:9090"
+    networks:
+      - document-automation
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - .:/workspace:cached
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - document-automation
+    user: grafana
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_PTRACE
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  document-automation:
+    driver: bridge
