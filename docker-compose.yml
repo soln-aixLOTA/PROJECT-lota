@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    privileged: true  # Required for Docker-in-Docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/app
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    ports:
+      - "3000:3000"
+    command: ["cargo", "run", "--release"]
