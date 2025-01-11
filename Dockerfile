@@ -1,31 +1,44 @@
-FROM rust:1.75-slim-bookworm
+FROM rust:latest as builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    pkg-config \
     libssl-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user
-RUN useradd -ms /bin/bash vscode \
-    && mkdir -p /home/vscode/.cargo/registry \
-    && chown -R vscode:vscode /home/vscode
+# Set working directory
+WORKDIR /app
 
-# Set up working directory
-WORKDIR /workspace
+# Copy project files
+COPY . .
 
-# Switch to non-root user
-USER vscode
+# Set DATABASE_URL for SQLx during build
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+ENV SQLX_OFFLINE=true
 
-# Set environment variables
-ENV RUST_BACKTRACE=1
-ENV CARGO_HOME=/home/vscode/.cargo
+# Build the application
+RUN cargo build --release
 
-# Pre-create Cargo directories
-RUN mkdir -p /home/vscode/.cargo/registry \
-    && mkdir -p /home/vscode/.cargo/git
+# Production stage
+FROM debian:bookworm-slim as production
 
-# Keep container running
-CMD ["sleep", "infinity"] 
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    libtesseract5 \
+    tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create config directory
+RUN mkdir -p /etc/document-automation/config
+
+# Copy the binary from builder
+COPY --from=builder /app/target/release/document-automation /usr/local/bin/
+
+# Set working directory
+WORKDIR /usr/local/bin
+
+# Set the entrypoint
+ENTRYPOINT ["document-automation"] 

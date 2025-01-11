@@ -1,129 +1,36 @@
-# Rust specific
+# Dependencies
 /target/
-**/*.rs.bk
-*.pdb
-Cargo.lock
+**/target/
+/node_modules/
+/.cargo/
+/.venv/
+/.next/
 
-# IDE specific
-.idea/
-.vscode/
-*.swp
-*.swo
-.DS_Store
+# Environment variables
 .env
+**/.env
+
+# IDE and editor files
+/.vscode/
+/.idea/
+/.codegpt/
 
 # Build artifacts
-/dist/
-/build/
 *.o
 *.so
 *.dylib
 *.dll
 *.exe
+*.lock
+/coverage/
 
-# Debug artifacts
-*.dSYM/
-
-# Dependencies
-/node_modules/
-.npm/
-.cargo/
-
-# Database
-*.db
-*.db-*
-*.sqlite
-*.sqlite3
-
-# Logs and temporary files
+# Logs
 *.log
-*.tmp
-tmp/
-log/
-logs/
-
-# Environment files
-.env*
-!.env.example
-
-# Docker volumes
-docker/volumes/
-volumes/
-
-# Test coverage
-coverage/
-.nyc_output/
-target/coverage/
-
-# Generated documentation
-/doc/
-/docs/_build/
-
-# SQLx offline data
-.sqlx/
+/logs/
 
 # Kubernetes secrets
-*-secret.yaml
-*-secrets.yaml
+/config/kubernetes/base/ngc-secret.yaml
+/config/kubernetes/base/nim-secrets.yaml
 
-# Certificates and keys
-*.pem
-*.key
-*.crt
-*.cer
-*.der
-*.priv
-
-# Cache directories
-.cache/
-.codegpt/
-.dist/
-.swc/
-.next/
-
-# OS specific
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-# Linux
-*~
-.directory
-
-# Project specific
-uploads/
-prompt-history/
-
-# Node.js specific
-node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node
-node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node
-
-# Terraform
-.terraform/
-**/.terraform/
-*.tfstate
-*.tfstate.*
-crash.log
-crash.*.log
-*.tfvars
-*.tfvars.json
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
-.terraformrc
-terraform.rc
-cloud-strategy/configs/terraform/.terraform/
-
-# Python
-venv/
-.venv/
-__pycache__/
-*.py[cod]
-
-.codegpt
-.fake
+# SQLx
+/.sqlx/

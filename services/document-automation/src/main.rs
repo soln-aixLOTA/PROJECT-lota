@@ -3,11 +3,12 @@ mod core;
 mod db;
 mod models;
 mod storage;
+mod error;
 
 use axum::{
     extract::{Multipart, Path, State},
     http::StatusCode,
-    response::{IntoResponse, Response, Json},
+    response::{IntoResponse, Response},
     routing::{get, post, put},
     Router,
 };
@@ -16,6 +17,7 @@ use storage::LocalStorage;
 use tokio::sync::Mutex;
 use tower_http::limit::RequestBodyLimitLayer;
 use tokio::net::TcpListener;
+use error::DocumentError;
 
 const MAX_FILE_SIZE: usize = 1_000_000; // 1MB limit
 const ALLOWED_CONTENT_TYPES: [&str; 2] = ["text/plain", "application/pdf"];
@@ -26,7 +28,7 @@ struct AppState {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
@@ -41,6 +43,8 @@ async fn main() {
         .route("/documents", post(upload_document))
         .route("/documents/:id", get(get_document))
         .route("/documents/:id", put(update_document))
+        .route("/documents/:id", delete(delete_document))
+        .route("/documents", get(list_documents))
         .fallback(handle_404)
         .with_state(AppState { storage })
         .layer(RequestBodyLimitLayer::new(MAX_FILE_SIZE));
@@ -49,272 +53,176 @@ async fn main() {
     let addr = SocketAddr::from(([0, 0, 0, 0], 8081));
     tracing::info!("Listening on {}", addr);
     
-    let listener = TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
+    Ok(())
 }
 
 async fn health() -> &'static str {
     "OK"
 }
 
-fn create_error_response(status: StatusCode, message: &str, code: &str) -> (StatusCode, Json<models::ErrorResponse>) {
-    (
-        status,
-        Json(models::ErrorResponse {
-            error: models::StandardError {
-                status: status.as_u16(),
-                message: message.to_string(),
-                code: code.to_string(),
-            },
-        }),
-    )
+async fn handle_404() -> impl IntoResponse {
+    DocumentError::NotFound("Resource not found".to_string())
+}
+
+fn validate_filename(filename: Option<&str>) -> Result<(), DocumentError> {
+    let filename = filename.ok_or_else(|| DocumentError::InvalidFilename("No filename provided".to_string()))?;
+    
+    if filename.is_empty() {
+        return Err(DocumentError::InvalidFilename("Filename cannot be empty".to_string()));
+    }
+
+    if filename.contains(|c: char| c.is_control() || c == '/' || c == '\\') {
+        return Err(DocumentError::InvalidFilename("Filename contains invalid characters".to_string()));
+    }
+
+    Ok(())
 }
 
 async fn upload_document(
     State(AppState { storage }): State<AppState>,
     mut multipart: Multipart,
-) -> Response {
+) -> Result<impl IntoResponse, DocumentError> {
     tracing::info!("Processing file upload request");
     
     // Get the file field
-    let Some(field) = multipart.next_field().await.map_err(|e| {
-        tracing::error!("Error getting field: {}", e);
-        create_error_response(
-            StatusCode::BAD_REQUEST,
-            &format!("Failed to process file upload: {}", e),
-            "UPLOAD_ERROR"
-        ).into_response()
-    }).ok().flatten() else {
-        tracing::warn!("No file field found in request");
-        return create_error_response(
-            StatusCode::BAD_REQUEST,
-            "No file field found in request",
-            "MISSING_FILE"
-        ).into_response();
-    };
+    let field = multipart
+        .next_field()
+        .await
+        .map_err(|e| DocumentError::ProcessingError(format!("Failed to process multipart: {}", e)))?
+        .ok_or_else(|| DocumentError::InvalidFormat("No file field found in request".to_string()))?;
+
+    // Validate filename if provided
+    validate_filename(field.file_name())?;
 
     // Get and validate content type
-    let content_type = match field.content_type() {
-        Some(ct) => ct,
-        None => {
-            tracing::warn!("No content type provided");
-            return create_error_response(
-                StatusCode::BAD_REQUEST,
-                "Content type must be specified",
-                "MISSING_CONTENT_TYPE"
-            ).into_response();
-        }
-    };
+    let content_type = field
+        .content_type()
+        .ok_or_else(|| DocumentError::InvalidFormat("No content type provided".to_string()))?;
 
-    tracing::info!("Received file upload with content type: '{}'", content_type);
-    
     if !ALLOWED_CONTENT_TYPES.contains(&content_type) {
-        tracing::warn!("Unsupported content type: '{}'. Allowed types: {:?}", content_type, ALLOWED_CONTENT_TYPES);
-        return create_error_response(
-            StatusCode::BAD_REQUEST,
-            &format!("Unsupported content type: {}. Allowed types are: {:?}", content_type, ALLOWED_CONTENT_TYPES),
-            "UNSUPPORTED_CONTENT_TYPE"
-        ).into_response();
+        return Err(DocumentError::InvalidContentType {
+            found: content_type.to_string(),
+            expected: ALLOWED_CONTENT_TYPES.iter().map(|s| s.to_string()).collect(),
+        });
     }
 
-    // Validate file extension
-    if let Some(filename) = field.file_name() {
-        let extension = std::path::Path::new(filename)
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .unwrap_or("");
+    // Read the file data
+    let data = field
+        .bytes()
+        .await
+        .map_err(|e| DocumentError::ProcessingError(format!("Failed to read file data: {}", e)))?;
 
-        let valid_extension = match content_type {
-            "text/plain" => extension == "txt",
-            "application/pdf" => extension == "pdf",
-            _ => false,
-        };
-
-        if !valid_extension {
-            tracing::warn!("Invalid file extension: '{}' for content type: '{}'", extension, content_type);
-            return create_error_response(
-                StatusCode::BAD_REQUEST,
-                &format!("Invalid file extension: '{}' for content type: '{}'", extension, content_type),
-                "INVALID_FILE_EXTENSION"
-            ).into_response();
-        }
+    if data.len() > MAX_FILE_SIZE {
+        return Err(DocumentError::SizeExceeded {
+            size: (data.len() as u64) / (1024 * 1024),
+            limit: (MAX_FILE_SIZE as u64) / (1024 * 1024),
+        });
     }
 
-    // Read file content
-    let content = match field.bytes().await {
-        Ok(bytes) => {
-            if bytes.len() > MAX_FILE_SIZE {
-                tracing::warn!("File size {} exceeds maximum allowed size {}", bytes.len(), MAX_FILE_SIZE);
-                return create_error_response(
-                    StatusCode::BAD_REQUEST,
-                    &format!("File size {} bytes exceeds maximum limit of {} bytes", bytes.len(), MAX_FILE_SIZE),
-                    "FILE_TOO_LARGE"
-                ).into_response();
+    // Generate a unique ID for the file
+    let file_id = uuid::Uuid::new_v4().to_string();
+
+    // Store the file
+    storage
+        .lock()
+        .await
+        .store(&file_id, &data)
+        .await
+        .map_err(|e| match e {
+            DocumentError::FileOperation { operation, path, error } => {
+                DocumentError::StorageError(format!("Failed to {} file at {}: {}", operation, path, error))
             }
-            bytes
-        }
-        Err(e) => {
-            tracing::error!("Error reading file content: {}", e);
-            return create_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                &format!("Failed to read file content: {}", e),
-                "READ_ERROR"
-            ).into_response();
-        }
-    };
+            e => e,
+        })?;
 
-    // Save file
-    let storage = storage.lock().await;
-    match storage.save_file(content.to_vec()).await {
-        Ok(document_id) => {
-            tracing::info!("File saved successfully with ID: {}", document_id);
-            (
-                StatusCode::OK,
-                Json(models::UploadResponse {
-                    document_id,
-                    message: "File uploaded successfully".to_string(),
-                })
-            ).into_response()
-        }
-        Err(e) => {
-            tracing::error!("Error saving file: {}", e);
-            create_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                &format!("Failed to save file: {}", e),
-                "SAVE_ERROR"
-            ).into_response()
-        }
-    }
+    Ok((StatusCode::CREATED, [("Location", format!("/documents/{}", file_id))]))
 }
 
 async fn get_document(
     State(AppState { storage }): State<AppState>,
     Path(id): Path<String>,
-) -> Response {
-    let storage = storage.lock().await;
-    match storage.get_file(&id).await {
-        Ok(content) => {
-            tracing::info!("Successfully retrieved document: {}", id);
-            content.into_response()
-        }
-        Err(e) => {
-            tracing::error!("Error retrieving document {}: {}", id, e);
-            create_error_response(
-                StatusCode::NOT_FOUND,
-                "Document not found",
-                "DOCUMENT_NOT_FOUND"
-            ).into_response()
-        }
-    }
+) -> Result<impl IntoResponse, DocumentError> {
+    let data = storage
+        .lock()
+        .await
+        .retrieve(&id)
+        .await?;
+
+    Ok((StatusCode::OK, [("Content-Type", "application/octet-stream")], data))
 }
 
 async fn update_document(
     State(AppState { storage }): State<AppState>,
     Path(id): Path<String>,
     mut multipart: Multipart,
-) -> Response {
-    tracing::info!("Updating document with id: {}", id);
-    
-    // Get the file field
-    let Some(field) = multipart.next_field().await.map_err(|e| {
-        tracing::error!("Error getting field: {}", e);
-        create_error_response(
-            StatusCode::BAD_REQUEST,
-            &format!("Failed to process file upload: {}", e),
-            "UPLOAD_ERROR"
-        ).into_response()
-    }).ok().flatten() else {
-        tracing::warn!("No file field found in request");
-        return create_error_response(
-            StatusCode::BAD_REQUEST,
-            "No file field found in request",
-            "MISSING_FILE"
-        ).into_response();
-    };
+) -> Result<impl IntoResponse, DocumentError> {
+    // Check if document exists
+    if !storage.lock().await.exists(&id).await? {
+        return Err(DocumentError::NotFound(format!("Document {} not found", id)));
+    }
 
-    // Get and validate content type
-    let content_type = match field.content_type() {
-        Some(ct) => ct,
-        None => {
-            tracing::warn!("No content type provided");
-            return create_error_response(
-                StatusCode::BAD_REQUEST,
-                "Content type must be specified",
-                "MISSING_CONTENT_TYPE"
-            ).into_response();
-        }
-    };
+    // Process the update similar to upload
+    let field = multipart
+        .next_field()
+        .await
+        .map_err(|e| DocumentError::ProcessingError(format!("Failed to process multipart: {}", e)))?
+        .ok_or_else(|| DocumentError::InvalidFormat("No file field found in request".to_string()))?;
 
-    tracing::info!("Received file upload with content type: '{}'", content_type);
-    
+    // Validate filename if provided
+    validate_filename(field.file_name())?;
+
+    let content_type = field
+        .content_type()
+        .ok_or_else(|| DocumentError::InvalidFormat("No content type provided".to_string()))?;
+
     if !ALLOWED_CONTENT_TYPES.contains(&content_type) {
-        tracing::warn!("Unsupported content type: '{}'. Allowed types: {:?}", content_type, ALLOWED_CONTENT_TYPES);
-        return create_error_response(
-            StatusCode::BAD_REQUEST,
-            &format!("Unsupported content type: {}. Allowed types are: {:?}", content_type, ALLOWED_CONTENT_TYPES),
-            "UNSUPPORTED_CONTENT_TYPE"
-        ).into_response();
+        return Err(DocumentError::InvalidContentType {
+            found: content_type.to_string(),
+            expected: ALLOWED_CONTENT_TYPES.iter().map(|s| s.to_string()).collect(),
+        });
     }
 
-    // Read file content
-    let content = match field.bytes().await {
-        Ok(bytes) => {
-            if bytes.len() > MAX_FILE_SIZE {
-                tracing::warn!("File size {} exceeds maximum allowed size {}", bytes.len(), MAX_FILE_SIZE);
-                return create_error_response(
-                    StatusCode::BAD_REQUEST,
-                    &format!("File size {} bytes exceeds maximum limit of {} bytes", bytes.len(), MAX_FILE_SIZE),
-                    "FILE_TOO_LARGE"
-                ).into_response();
-            }
-            bytes
-        }
-        Err(e) => {
-            tracing::error!("Error reading file content: {}", e);
-            return create_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                &format!("Failed to read file content: {}", e),
-                "READ_ERROR"
-            ).into_response();
-        }
-    };
+    let data = field
+        .bytes()
+        .await
+        .map_err(|e| DocumentError::ProcessingError(format!("Failed to read file data: {}", e)))?;
 
-    // Update file
-    let storage = storage.lock().await;
-    match storage.update_file(&id, content.to_vec()).await {
-        Ok(_) => {
-            tracing::info!("File updated successfully: {}", id);
-            (
-                StatusCode::OK,
-                Json(models::UploadResponse {
-                    document_id: id,
-                    message: "File updated successfully".to_string(),
-                })
-            ).into_response()
-        }
-        Err(e) => {
-            tracing::error!("Error updating file: {}", e);
-            if e.to_string().contains("not found") {
-                create_error_response(
-                    StatusCode::NOT_FOUND,
-                    "Document not found",
-                    "DOCUMENT_NOT_FOUND"
-                ).into_response()
-            } else {
-                create_error_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to update file",
-                    "UPDATE_ERROR"
-                ).into_response()
-            }
-        }
+    if data.len() > MAX_FILE_SIZE {
+        return Err(DocumentError::SizeExceeded {
+            size: (data.len() as u64) / (1024 * 1024),
+            limit: (MAX_FILE_SIZE as u64) / (1024 * 1024),
+        });
     }
+
+    // Update the file
+    storage
+        .lock()
+        .await
+        .store(&id, &data)
+        .await
+        .map_err(|e| match e {
+            DocumentError::FileOperation { operation, path, error } => {
+                DocumentError::StorageError(format!("Failed to {} file at {}: {}", operation, path, error))
+            }
+            e => e,
+        })?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
-async fn handle_404() -> Response {
-    create_error_response(
-        StatusCode::NOT_FOUND,
-        "Endpoint not found",
-        "ENDPOINT_NOT_FOUND"
-    ).into_response()
+async fn delete_document(
+    State(AppState { storage }): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<impl IntoResponse, DocumentError> {
+    storage.lock().await.delete(&id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn list_documents(
+    State(AppState { storage }): State<AppState>,
+) -> Result<impl IntoResponse, DocumentError> {
+    let files = storage.lock().await.list().await?;
+    Ok((StatusCode::OK, axum::Json(files)))
 }
