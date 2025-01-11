@@ -14,9 +14,8 @@ use axum::{
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use storage::LocalStorage;
 use tokio::sync::Mutex;
-use tower::BoxError;
 use tower_http::limit::RequestBodyLimitLayer;
-use futures_core::stream::Stream;
+use tokio::net::TcpListener;
 
 const MAX_FILE_SIZE: usize = 1_000_000; // 1MB limit
 const ALLOWED_CONTENT_TYPES: [&str; 2] = ["text/plain", "application/pdf"];
@@ -50,10 +49,8 @@ async fn main() {
     let addr = SocketAddr::from(([0, 0, 0, 0], 8081));
     tracing::info!("Listening on {}", addr);
     
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    let listener = TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
 
 async fn health() -> &'static str {
