@@ -8,6 +8,7 @@ pub struct Claims {
     pub exp: usize,
 }
 
+#[allow(dead_code)]
 pub fn create_token(user_id: &str, secret: &[u8]) -> Result<String, jsonwebtoken::errors::Error> {
     let expiration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -27,6 +28,7 @@ pub fn create_token(user_id: &str, secret: &[u8]) -> Result<String, jsonwebtoken
     )
 }
 
+#[allow(dead_code)]
 pub fn validate_token(token: &str, secret: &[u8]) -> Result<Claims, jsonwebtoken::errors::Error> {
     let token_data = decode::<Claims>(
         token,
