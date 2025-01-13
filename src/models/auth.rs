@@ -19,6 +19,15 @@ pub enum UserRole {
     User,
 }
 
+impl std::fmt::Display for UserRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UserRole::Admin => write!(f, "admin"),
+            UserRole::User => write!(f, "user"),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct LoginRequest {
     #[validate(length(min = 3, max = 50))]
@@ -40,4 +49,4 @@ pub struct TokenClaims {
     pub exp: i64,
     pub iat: i64,
     pub role: UserRole,
-} 
+}

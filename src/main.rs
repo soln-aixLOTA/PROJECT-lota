@@ -1,5 +1,6 @@
 use actix_web::{middleware, web, App, HttpServer};
 use document_automation::{
+    config::AppConfig,
     handlers,
     middleware::{auth::AuthMiddleware, RequestId, SecurityHeaders},
 };
@@ -17,6 +18,9 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Failed to create pool");
 
+    let config = AppConfig::from_env().expect("Failed to load configuration");
+    let bind_addr = format!("{}:{}", config.host, config.port);
+
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))
@@ -25,7 +29,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .configure(handlers::configure_routes)
     })
-    .bind("0.0.0.0:8080")?
+    .bind(&bind_addr)?
     .run()
     .await
 }

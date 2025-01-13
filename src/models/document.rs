@@ -6,25 +6,25 @@ use validator::Validate;
 #[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, Copy, PartialEq, Eq)]
 #[sqlx(type_name = "document_status", rename_all = "lowercase")]
 pub enum DocumentStatus {
-    Pending,
-    Processing,
-    Completed,
-    Failed,
+    pending,
+    processing,
+    completed,
+    failed,
 }
 
 impl Default for DocumentStatus {
     fn default() -> Self {
-        Self::Pending
+        Self::pending
     }
 }
 
 impl From<String> for DocumentStatus {
     fn from(s: String) -> Self {
         match s.to_lowercase().as_str() {
-            "pending" => Self::Pending,
-            "processing" => Self::Processing,
-            "completed" => Self::Completed,
-            "failed" => Self::Failed,
+            "pending" => Self::pending,
+            "processing" => Self::processing,
+            "completed" => Self::completed,
+            "failed" => Self::failed,
             _ => Self::default(),
         }
     }
@@ -40,6 +40,7 @@ pub struct Document {
     pub content_type: Option<String>,
     pub size: Option<i64>,
     pub metadata: Option<serde_json::Value>,
+    pub document_type: String,
     pub status: DocumentStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -54,6 +55,8 @@ pub struct CreateDocumentRequest {
     pub content_type: Option<String>,
     pub size: Option<i64>,
     pub metadata: Option<DocumentMetadata>,
+    #[validate(length(min = 1, max = 50))]
+    pub document_type: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate)]
@@ -65,6 +68,8 @@ pub struct UpdateDocumentRequest {
     pub content_type: Option<String>,
     pub size: Option<i64>,
     pub metadata: Option<DocumentMetadata>,
+    #[validate(length(min = 1, max = 50))]
+    pub document_type: Option<String>,
     pub status: Option<DocumentStatus>,
 }
 
@@ -116,7 +121,8 @@ impl Document {
             content_type: Some(content_type),
             size: Some(size),
             metadata: metadata.map(|m| serde_json::to_value(m).unwrap_or_default()),
-            status: DocumentStatus::Pending,
+            document_type: String::new(),
+            status: DocumentStatus::pending,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }

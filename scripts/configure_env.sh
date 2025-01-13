@@ -20,7 +20,7 @@ prompt_with_default() {
     local prompt=$1
     local default=$2
     local value
-    
+
     read -p "$prompt [$default]: " value
     echo "${value:-$default}"
 }
@@ -28,14 +28,14 @@ prompt_with_default() {
 # Create .env file
 create_env_file() {
     local env_file=".env"
-    
+
     echo "Creating .env file..."
-    
+
     # Prompt for Vault configuration
     VAULT_ADDR=$(prompt_with_default "Enter Vault address" "$DEFAULT_VAULT_ADDR")
     VAULT_ROLE=$(prompt_with_default "Enter Vault role" "$DEFAULT_VAULT_ROLE")
     VAULT_NAMESPACE=$(prompt_with_default "Enter Vault namespace" "$DEFAULT_VAULT_NAMESPACE")
-    
+
     # Prompt for database configuration
     DB_HOST=$(prompt_with_default "Enter PostgreSQL host" "localhost")
     DB_PORT=$(prompt_with_default "Enter PostgreSQL port" "5432")
@@ -43,13 +43,13 @@ create_env_file() {
     DB_USER=$(prompt_with_default "Enter PostgreSQL username" "postgres")
     read -s -p "Enter PostgreSQL password: " DB_PASSWORD
     echo
-    
+
     # Prompt for Redis configuration
     REDIS_HOST=$(prompt_with_default "Enter Redis host" "localhost")
     REDIS_PORT=$(prompt_with_default "Enter Redis port" "6379")
     read -s -p "Enter Redis password (leave empty if none): " REDIS_PASSWORD
     echo
-    
+
     # Write to .env file
     cat > "$env_file" << EOF
 # Vault Configuration
@@ -84,41 +84,58 @@ EOF
 # Create Kubernetes secrets
 create_k8s_secrets() {
     echo "Creating Kubernetes secrets..."
-    
-    # Check if kubectl is available and configured
+
+    # Check if kubectl is available
     if ! command -v kubectl >/dev/null 2>&1; then
         echo -e "${RED}kubectl not found. Please install kubectl first.${NC}"
-        exit 1
+        return 1
     fi
-    
+
+    # Test kubectl connection
+    if ! kubectl cluster-info >/dev/null 2>&1; then
+        echo -e "${YELLOW}Warning: Could not connect to Kubernetes cluster.${NC}"
+        echo "Please ensure:"
+        echo "1. Your Kubernetes cluster is running"
+        echo "2. kubectl is properly configured with cluster access"
+        echo -e "${YELLOW}Skipping Kubernetes secret creation.${NC}"
+        return 1
+    fi
+
     # Create namespace if it doesn't exist
-    kubectl create namespace lotabots 2>/dev/null || true
-    
+    if ! kubectl create namespace lotabots 2>/dev/null; then
+        echo -e "${YELLOW}Note: namespace 'lotabots' already exists${NC}"
+    fi
+
     # Create secrets from .env file
-    kubectl create secret generic lotabots-secrets \
+    if kubectl create secret generic lotabots-secrets \
         --from-file=.env \
         --namespace lotabots \
-        --dry-run=client -o yaml | kubectl apply -f -
-    
-    echo -e "${GREEN}✓ Kubernetes secrets created${NC}"
+        --dry-run=client -o yaml | kubectl apply -f -; then
+        echo -e "${GREEN}✓ Kubernetes secrets created${NC}"
+    else
+        echo -e "${RED}Failed to create Kubernetes secrets${NC}"
+        return 1
+    fi
 }
 
 # Main configuration process
 main() {
     # Create environment file
     create_env_file
-    
+
     # Ask if user wants to create Kubernetes secrets
     read -p "Do you want to create Kubernetes secrets? (y/N) " create_secrets
     if [[ $create_secrets =~ ^[Yy]$ ]]; then
-        create_k8s_secrets
+        if ! create_k8s_secrets; then
+            echo -e "${YELLOW}Kubernetes secret creation was skipped. You can create them later when your cluster is ready.${NC}"
+        fi
     fi
-    
+
     echo -e "\n${GREEN}Environment configuration completed!${NC}"
     echo "Next steps:"
     echo "1. Review the .env file and adjust values if needed"
-    echo "2. Make sure your Kubernetes cluster has access to the secrets"
+    echo "2. Make sure your Kubernetes cluster has access to the secrets (if using Kubernetes)"
     echo "3. Run the application with 'cargo run' or deploy to Kubernetes"
 }
 
-main 
+main

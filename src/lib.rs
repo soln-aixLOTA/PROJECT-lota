@@ -22,6 +22,7 @@
 //! ```
 
 pub mod auth;
+pub mod config;
 pub mod db;
 pub mod error;
 pub mod handlers;
@@ -29,4 +30,3 @@ pub mod middleware;
 pub mod models;
 
 pub use error::{AppError, AppResult};
-

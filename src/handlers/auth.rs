@@ -33,13 +33,14 @@ pub async fn register(
     let db_user = sqlx::query_as!(
         DbUser,
         r#"
-        INSERT INTO users (username, email, password_hash)
-        VALUES ($1, $2, $3)
+        INSERT INTO users (username, email, password_hash, role)
+        VALUES ($1, $2, $3, $4)
         RETURNING id, username, email, password_hash, mfa_enabled, mfa_secret, role, created_at, updated_at
         "#,
         req.username,
         req.email,
         password_hash,
+        req.role.to_string().to_lowercase(),
     )
     .fetch_one(&**pool)
     .await?;
@@ -120,4 +121,4 @@ pub async fn refresh_token(
         refresh_token: refresh_token_str,
         user_id: user.id,
     }))
-} 
+}

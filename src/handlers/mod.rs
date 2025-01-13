@@ -10,21 +10,18 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
         web::scope("/api/v1")
             .service(web::scope("/health").service(health::health_check))
             .service(
-                web::scope("")
+                web::scope("/auth")
+                    .service(auth::register)
+                    .service(auth::login)
+                    .service(auth::refresh_token)
+            )
+            .service(
+                web::scope("/documents")
                     .wrap(AuthMiddleware)
-                    .service(
-                        web::scope("/auth")
-                            .service(auth::register)
-                            .service(auth::login)
-                            .service(auth::refresh_token),
-                    )
-                    .service(
-                        web::scope("/documents")
-                            .service(documents::create_document)
-                            .service(documents::get_document)
-                            .service(documents::list_documents)
-                            .service(documents::update_document),
-                    ),
+                    .service(documents::create_document)
+                    .service(documents::get_document)
+                    .service(documents::list_documents)
+                    .service(documents::update_document)
             ),
     );
 }
