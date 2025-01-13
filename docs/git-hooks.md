@@ -6,6 +6,7 @@ This document describes the Git hooks used in the LotaBots project to maintain c
 - [Overview](#overview)
 - [Pre-commit Hook](#pre-commit-hook)
 - [Commit Message Hook](#commit-message-hook)
+- [Commit Signature Verification](#commit-signature-verification)
 - [Installation](#installation)
 - [Bypassing Hooks](#bypassing-hooks)
 - [Troubleshooting](#troubleshooting)
@@ -150,6 +151,100 @@ fix(attestation): resolve hardware verification timeout
 perf(ml-pipeline): optimize model inference
 security(encryption): update TLS configuration
 ```
+
+## Commit Signature Verification
+
+LotaBots requires all commits to be signed for security and authenticity. We support three methods of signing:
+
+### 1. GPG Signing (Recommended)
+```bash
+# Check for existing GPG keys
+gpg --list-secret-keys --keyid-format=long
+
+# Generate a new GPG key if needed
+gpg --full-generate-key
+
+# Add your GPG key to GitHub
+gpg --armor --export YOUR_KEY_ID
+
+# Configure Git to use your GPG key
+git config --global user.signingkey YOUR_KEY_ID
+git config --global commit.gpgsign true
+
+# Sign commits automatically
+git commit -S -m "your commit message"
+```
+
+### 2. SSH Signing (Alternative)
+```bash
+# Use existing SSH key or generate new one
+ssh-keygen -t ed25519 -C "your_email@example.com"
+
+# Add SSH key to GitHub as a signing key
+# Copy your public key and add it in GitHub settings
+
+# Configure Git to use SSH signing
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+
+# Sign commits automatically
+git commit -S -m "your commit message"
+```
+
+### 3. S/MIME Signing (For Organizations)
+- Use X.509 key issued by your organization
+- Configure Git to use S/MIME:
+  ```bash
+  git config --global gpg.x509.program smimesign
+  git config --global gpg.format x509
+  ```
+
+### Verification Status
+Commits will show one of these statuses on GitHub:
+- **Verified**: Signature is valid and verified
+- **Partially verified**: Valid signature but multiple authors
+- **Unverified**: Invalid or missing signature
+
+### Best Practices
+1. **Key Security**
+   - Store private keys securely
+   - Use strong passphrases
+   - Rotate keys periodically
+   - Revoke compromised keys immediately
+
+2. **Automation**
+   - Configure signing in CI/CD pipelines
+   - Use environment-specific keys
+   - Verify signatures in pre-receive hooks
+
+3. **Emergency Procedures**
+   - Document key recovery process
+   - Maintain backup signing keys
+   - Define revocation procedures
+
+### Troubleshooting Signatures
+1. **Invalid Signatures**
+   - Verify key configuration
+   - Check key expiration
+   - Ensure key is added to GitHub
+   - Validate email matches Git config
+
+2. **CI/CD Issues**
+   - Configure bot signing
+   - Use appropriate key types
+   - Set correct environment variables
+
+3. **Common Errors**
+   ```bash
+   # Fix "secret key not available"
+   gpg --receive-keys KEY_ID
+
+   # Fix "failed to sign the data"
+   echo "test" | gpg --clearsign
+
+   # Fix SSH signing issues
+   ssh-add ~/.ssh/id_ed25519
+   ```
 
 ## Installation
 
