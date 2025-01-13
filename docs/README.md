@@ -28,6 +28,9 @@ The repository includes two main hooks:
 ### Common Commands
 
 ```bash
+# Set up commit signing (interactive)
+./scripts/setup-git-signing.sh
+
 # Normal commit (runs all checks)
 git commit -S -m "feat(auth): add JWT refresh"
 

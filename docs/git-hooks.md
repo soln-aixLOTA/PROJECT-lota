@@ -156,6 +156,23 @@ security(encryption): update TLS configuration
 
 LotaBots requires all commits to be signed for security and authenticity. We support three methods of signing:
 
+### Quick Setup
+The fastest way to set up commit signing is to use our automated setup script:
+
+```bash
+# Run the interactive setup script
+./scripts/setup-git-signing.sh
+```
+
+The script will:
+1. Guide you through choosing a signing method
+2. Check for required dependencies
+3. Set up new keys or use existing ones
+4. Configure Git automatically
+5. Display your public key for GitHub
+
+For manual setup, follow the instructions below for your preferred method:
+
 ### 1. GPG Signing (Recommended)
 ```bash
 # Check for existing GPG keys
