@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Environment
+.env
+.env.*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Cache and temp files
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
+*.so
+
+# Documentation
+docs/
+*.md
+
+# Tests
+tests/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/
+
+# Hugging Face cache (mounted as volume)
+.cache/

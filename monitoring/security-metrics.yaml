@@ -1,0 +1,123 @@
+monitoring:
+  # Authentication metrics
+  auth:
+    failed_login_attempts:
+      type: "counter"
+      threshold: 10
+      period: "5m"
+      severity: "high"
+      description: "Number of failed login attempts"
+      alert:
+        channels:
+          - email: "security@example.com"
+          - slack: "#security-alerts"
+
+    token_revocations:
+      type: "counter"
+      threshold: 5
+      period: "1h"
+      severity: "medium"
+      description: "Number of token revocations"
+      alert:
+        channels:
+          - email: "security@example.com"
+
+  # API security metrics
+  api:
+    request_rate:
+      type: "rate"
+      threshold: 1000
+      period: "1m"
+      severity: "medium"
+      description: "API request rate per minute"
+      alert:
+        channels:
+          - slack: "#api-monitoring"
+
+    error_rate:
+      type: "rate"
+      threshold: 0.05  # 5% error rate
+      period: "5m"
+      severity: "high"
+      description: "API error rate"
+      alert:
+        channels:
+          - email: "security@example.com"
+          - slack: "#security-alerts"
+
+  # Infrastructure metrics
+  infrastructure:
+    database_connections:
+      type: "gauge"
+      threshold: 80  # 80% of max connections
+      period: "1m"
+      severity: "high"
+      description: "Database connection utilization"
+      alert:
+        channels:
+          - email: "ops@example.com"
+          - slack: "#ops-alerts"
+
+    disk_usage:
+      type: "gauge"
+      threshold: 85  # 85% disk usage
+      period: "5m"
+      severity: "high"
+      description: "Disk usage percentage"
+      alert:
+        channels:
+          - email: "ops@example.com"
+          - slack: "#ops-alerts"
+
+  # Dependency metrics
+  dependencies:
+    vulnerability_alerts:
+      type: "counter"
+      threshold: 1
+      period: "1h"
+      severity: "high"
+      description: "New vulnerability alerts"
+      alert:
+        channels:
+          - email: "security@example.com"
+          - slack: "#security-alerts"
+
+    dependency_health:
+      type: "gauge"
+      threshold: 0.9  # 90% health score
+      period: "1d"
+      severity: "medium"
+      description: "Overall dependency health score"
+      alert:
+        channels:
+          - email: "security@example.com"
+
+# Alert severity thresholds
+alert_thresholds:
+  critical:
+    response_time: "15m"
+    escalation:
+      - security_team
+      - on_call
+  high:
+    response_time: "1h"
+    escalation:
+      - security_team
+  medium:
+    response_time: "24h"
+    escalation:
+      - security_team
+  low:
+    response_time: "1w"
+    escalation:
+      - security_team
+
+# Notification channels
+notification_channels:
+  email:
+    security_team: "security@example.com"
+    ops_team: "ops@example.com"
+  slack:
+    security: "#security-alerts"
+    ops: "#ops-alerts"
+    api: "#api-monitoring"

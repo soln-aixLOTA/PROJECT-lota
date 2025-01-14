@@ -1,0 +1,141 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  KUBECONFIG_FILE: .kubeconfig
+
+jobs:
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubeconfig
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" > ${{ env.KUBECONFIG_FILE }}
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Update image tags
+        run: |
+          cd k8s/overlays/dev
+          kustomize edit set image \
+            lotabots/preprocessing-service=${{ env.REGISTRY }}/${{ github.repository }}-preprocessing:${{ github.sha }} \
+            lotabots/training-service=${{ env.REGISTRY }}/${{ github.repository }}-training:${{ github.sha }} \
+            lotabots/inference-service=${{ env.REGISTRY }}/${{ github.repository }}-inference:${{ github.sha }} \
+            lotabots/attestation-service=${{ env.REGISTRY }}/${{ github.repository }}-attestation:${{ github.sha }}
+
+      - name: Deploy to development
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} apply -k k8s/overlays/dev
+
+      - name: Check development deployment status
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/preprocessing-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/training-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/inference-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/attestation-service --timeout=60s
+
+      - name: Verify development deployment
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/preprocessing-service
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/training-service
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/inference-service
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/attestation-service
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubeconfig
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" > ${{ env.KUBECONFIG_FILE }}
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Update image tags
+        run: |
+          cd k8s/overlays/staging
+          kustomize edit set image \
+            lotabots/preprocessing-service=${{ env.REGISTRY }}/${{ github.repository }}-preprocessing:${{ github.sha }} \
+            lotabots/training-service=${{ env.REGISTRY }}/${{ github.repository }}-training:${{ github.sha }} \
+            lotabots/inference-service=${{ env.REGISTRY }}/${{ github.repository }}-inference:${{ github.sha }} \
+            lotabots/attestation-service=${{ env.REGISTRY }}/${{ github.repository }}-attestation:${{ github.sha }}
+
+      - name: Deploy to staging
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} apply -k k8s/overlays/staging
+
+      - name: Check staging deployment status
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/preprocessing-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/training-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/inference-service --timeout=60s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/attestation-service --timeout=60s
+
+      - name: Verify staging deployment
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/preprocessing-service
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/training-service
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/inference-service
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/attestation-service
+
+  deploy-prod:
+    name: Deploy to Production
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://api.lotabots.ai
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubeconfig
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" > ${{ env.KUBECONFIG_FILE }}
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Update image tags
+        run: |
+          cd k8s/overlays/prod
+          kustomize edit set image \
+            lotabots/preprocessing-service=${{ env.REGISTRY }}/${{ github.repository }}-preprocessing:${{ github.sha }} \
+            lotabots/training-service=${{ env.REGISTRY }}/${{ github.repository }}-training:${{ github.sha }} \
+            lotabots/inference-service=${{ env.REGISTRY }}/${{ github.repository }}-inference:${{ github.sha }} \
+            lotabots/attestation-service=${{ env.REGISTRY }}/${{ github.repository }}-attestation:${{ github.sha }}
+
+      - name: Deploy to production
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} apply -k k8s/overlays/prod
+
+      - name: Check production deployment status
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/preprocessing-service --timeout=180s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/training-service --timeout=180s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/inference-service --timeout=180s
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots rollout status deployment/attestation-service --timeout=180s
+
+      - name: Verify production deployment
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/preprocessing-service
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/training-service
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/inference-service
+          kubectl --kubeconfig=${{ env.KUBECONFIG_FILE }} -n lotabots wait --for=condition=available --timeout=300s deployment/attestation-service 

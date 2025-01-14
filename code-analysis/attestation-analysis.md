@@ -1,0 +1,7 @@
+# Attestation Service Analysis
+
+| Issue ID | File            | Line | Tool          | Issue Type            | Severity | Description                                                                 | Recommendation                                                                    |
+|----------|-----------------|------|---------------|-----------------------|----------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
+| CA-AT-001 | src/lib.rs      | N/A  | cargo clippy  | Performance           | Medium   | Review potential performance bottlenecks in attestation verification logic. | Profile the code to identify and optimize performance-critical sections.        |
+| CA-AT-002 | src/api.rs      | N/A  | cargo audit   | Security              | High     | Ensure secure handling of NVIDIA Attestation API key.                      | Use a dedicated secrets management system for storing the API key.            |
+| CA-AT-003 | Cargo.toml      | N/A  | cargo audit   | Outdated Dependency   | Medium   | Potential outdated dependencies.                                            | Update dependencies to their latest stable versions.                              | 

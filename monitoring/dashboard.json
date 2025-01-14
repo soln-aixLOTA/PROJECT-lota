@@ -1,0 +1,81 @@
+{
+  "displayName": "LOTA AI Dashboard",
+  "gridLayout": {
+    "columns": "2",
+    "widgets": [
+      {
+        "title": "Database Connections",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "metric.type=\"alloydb.googleapis.com/instance/connection_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "crossSeriesReducer": "REDUCE_MEAN",
+                    "perSeriesAligner": "ALIGN_MEAN"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "API Latency",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "metric.type=\"custom.googleapis.com/lotaai/api_latency\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_PERCENTILE_99"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "Error Rate",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "metric.type=\"custom.googleapis.com/lotaai/error_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_RATE"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "CPU Utilization",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "metric.type=\"alloydb.googleapis.com/instance/cpu/utilization\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_MEAN"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

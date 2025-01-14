@@ -1,0 +1,30 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: training-job
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: training-container
+        image: <your-repo>/training:latest
+        resources:
+          limits:
+            nvidia.com/gpu: 1  # or more GPUs, if needed
+        env:
+        - name: TRAIN_DATA_PATH
+          value: "/data/output.txt"
+        - name: MODEL_PATH
+          value: "/models/demo_model.bin"
+        volumeMounts:
+        - name: data-volume
+          mountPath: /data
+        - name: model-volume
+          mountPath: /models
+      volumes:
+      - name: data-volume
+        emptyDir: {}
+      - name: model-volume
+        emptyDir: {} 

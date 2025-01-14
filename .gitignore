@@ -1,0 +1,67 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+credentials.json
+service-account*.json
+*-credentials.json
+
+# Build artifacts
+/target
+/dist
+**/*.rs.bk
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+.nyc_output
+
+# Temporary files
+*.tmp
+*.temp
+.temp/
+.cache/
+
+# Local development
+docker-compose.override.yml
+.local/
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+k8s-secrets.yaml
+
+# Google Cloud
+.gcloud/
+*.json.enc
+gcp-key.json
+app-engine-service-account.json
+
+# Monitoring
+.sonarqube/
+.scannerwork/

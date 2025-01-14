@@ -1,0 +1,16 @@
+Name: SonarCloudAnalysis
+SchemaVersion: "1.0"
+
+Triggers:
+  - Type: Push
+
+Actions:
+  SonarCloudScan:
+    Identifier: sonar/sonarcloud-scan@v1.0.7
+    Inputs:
+      Sources:
+        - WorkflowSource
+    Compute:
+      Type: EC2
+    Configuration:
+      SonarToken: ${Secrets.SONAR_TOKEN}

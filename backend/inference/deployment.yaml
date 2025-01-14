@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inference-service
+  template:
+    metadata:
+      labels:
+        app: inference-service
+    spec:
+      containers:
+      - name: inference-service
+        image: <your-docker-registry>/inference-service:latest
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        ports:
+        - containerPort: 8000
+        env:
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+      volumes:
+      - name: model-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-service
+  namespace: default
+spec:
+  selector:
+    app: inference-service
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP

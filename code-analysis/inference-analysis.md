@@ -1,0 +1,7 @@
+# Inference Service Analysis
+
+| Issue ID | File            | Line | Tool    | Issue Type          | Severity | Description                                                                 | Recommendation                                                                 |
+|----------|-----------------|------|---------|---------------------|----------|--------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| CA-IN-001 | Dockerfile      | N/A  | Trivy   | Vulnerability       | High     | Potential vulnerabilities in the base image or installed packages.         | Regularly update base images and scan for vulnerabilities in the Dockerfile. |
+| CA-IN-002 | src/client.py   | N/A  | pylint  | Error Handling      | Medium   | Ensure proper error handling when communicating with Triton.             | Implement more specific error handling for Triton API calls.                 |
+| CA-IN-003 | requirements.txt| N/A  | safety  | Outdated Dependency | Medium   | Potential outdated dependencies.                                           | Update dependencies to their latest stable versions.                          | 

@@ -1,0 +1,38 @@
+{
+    "packageDirectories": [
+        {
+            "path": "force-app",
+            "default": true,
+            "package": "LotaBots-Salesforce",
+            "versionName": "Version 1.0",
+            "versionNumber": "1.0.0.NEXT"
+        }
+    ],
+    "namespace": "lotabots",
+    "sfdcLoginUrl": "https://login.salesforce.com",
+    "sourceApiVersion": "58.0",
+    "plugins": {
+        "einstein": {
+            "enableGenerativeAI": true,
+            "modelSettings": {
+                "textGeneration": {
+                    "model": "gpt-4",
+                    "maxTokens": 2048,
+                    "temperature": 0.7
+                },
+                "imageGeneration": {
+                    "model": "dall-e-3",
+                    "quality": "standard",
+                    "size": "1024x1024"
+                }
+            }
+        },
+        "analytics": {
+            "enableTableauCRM": true,
+            "datasetSettings": {
+                "maxRowsPerSync": 1000000,
+                "syncSchedule": "0 0 * * *"
+            }
+        }
+    }
+}

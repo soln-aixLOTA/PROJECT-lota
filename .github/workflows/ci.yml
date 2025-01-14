@@ -1,0 +1,190 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  RUST_LOG: info
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/lotaai_test
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: lotaai_test
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          override: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Run tests
+        run: cargo test
+        env:
+          DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/${{ secrets.POSTGRES_DB }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          HUGGING_FACE_HUB_TOKEN: ${{ secrets.HUGGING_FACE_HUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Run db_check
+        run: cargo run --bin db_check
+        env:
+          DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/${{ secrets.POSTGRES_DB }}
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Configure GCloud credentials
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up GCloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker gcr.io
+
+      - name: Create production secrets
+        run: |
+          # Create secrets in Secret Manager if they don't exist
+          for SECRET in DATABASE_URL JWT_SECRET HUGGING_FACE_HUB_TOKEN OPENAI_API_KEY; do
+            if ! gcloud secrets describe $SECRET 2>/dev/null; then
+              gcloud secrets create $SECRET --replication-policy="automatic"
+            fi
+          done
+
+          # Update secret values
+          echo -n "${{ secrets.DATABASE_URL }}" | \
+            gcloud secrets versions add DATABASE_URL --data-file=-
+          echo -n "${{ secrets.JWT_SECRET }}" | \
+            gcloud secrets versions add JWT_SECRET --data-file=-
+          echo -n "${{ secrets.HUGGING_FACE_HUB_TOKEN }}" | \
+            gcloud secrets versions add HUGGING_FACE_HUB_TOKEN --data-file=-
+          echo -n "${{ secrets.OPENAI_API_KEY }}" | \
+            gcloud secrets versions add OPENAI_API_KEY --data-file=-
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: gcr.io/${{ secrets.GCP_PROJECT }}/lotaai:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            HUGGING_FACE_HUB_TOKEN=${{ secrets.HUGGING_FACE_HUB_TOKEN }}
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    concurrency: production
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure GCloud credentials
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up GCloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials ${{ secrets.GKE_CLUSTER }} \
+            --zone ${{ secrets.GKE_ZONE }}
+
+      - name: Update Kubernetes secrets
+        run: |
+          # Create a temporary file for the secret values
+          cat << EOF > k8s-secrets.yaml
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: lotaai-secrets
+          type: Opaque
+          stringData:
+            DATABASE_URL: "${{ secrets.DATABASE_URL }}"
+            JWT_SECRET: "${{ secrets.JWT_SECRET }}"
+            HUGGING_FACE_HUB_TOKEN: "${{ secrets.HUGGING_FACE_HUB_TOKEN }}"
+            OPENAI_API_KEY: "${{ secrets.OPENAI_API_KEY }}"
+          EOF
+
+          # Apply the secrets
+          kubectl apply -f k8s-secrets.yaml
+          rm k8s-secrets.yaml
+
+      - name: Update deployment
+        run: |
+          kubectl set image deployment/lotaai \
+            lotaai=gcr.io/${{ secrets.GCP_PROJECT }}/lotaai:${{ github.sha }}
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/lotaai
+
+      - name: Run db_check in production
+        run: |
+          kubectl create job --from=cronjob/db-health-check db-check-${{ github.sha }}
+          kubectl wait --for=condition=complete job/db-check-${{ github.sha }} --timeout=60s
+
+      - name: Check deployment health
+        run: |
+          kubectl get pods -l app=lotaai
+          kubectl logs -l app=lotaai --tail=50

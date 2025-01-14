@@ -1,0 +1,99 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
+
+env:
+  KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+  ENVIRONMENT: production
+
+jobs:
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl unzip
+
+      - uses: actions/checkout@v4
+
+      - name: Install AWS CLI
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Configure AWS credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region ${{ secrets.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+
+      - name: Deploy to Kubernetes
+        run: |
+          # Update image tags in Kubernetes manifests
+          cd cloud-strategy/configs/kubernetes/base
+          kustomize edit set image user-management=ghcr.io/${{ github.repository }}/user-management:${{ github.sha }}
+
+          # Apply the changes
+          kubectl apply -k .
+
+          # Wait for rollout
+          kubectl rollout status deployment/user-management -n lotabots
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n lotabots
+          kubectl get services -n lotabots
+
+  notify:
+    name: Notify deployment status
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Install curl
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - name: Notify success
+        if: ${{ needs.deploy.result == 'success' }}
+        run: |
+          curl -X POST -H "Content-type: application/json" \
+               -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+               -d "{\"channel\":\"${{ secrets.SLACK_CHANNEL_ID }}\",\"text\":\"✅ Deployment to production successful!\"}" \
+               https://slack.com/api/chat.postMessage
+
+      - name: Notify failure
+        if: ${{ needs.deploy.result == 'failure' }}
+        run: |
+          curl -X POST -H "Content-type: application/json" \
+               -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+               -d "{\"channel\":\"${{ secrets.SLACK_CHANNEL_ID }}\",\"text\":\"❌ Deployment to production failed!\"}" \
+               https://slack.com/api/chat.postMessage

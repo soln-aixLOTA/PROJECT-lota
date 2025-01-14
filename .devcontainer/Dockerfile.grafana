@@ -1,0 +1,16 @@
+FROM grafana/grafana:9.4.7-debian
+
+# Switch to root to install packages
+USER root
+
+# Install required packages
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    curl \
+    locales \
+    ca-certificates \
+    apt-transport-https \
+    && rm -rf /var/lib/apt/lists/*
+
+# Switch back to grafana user for security
+USER grafana 

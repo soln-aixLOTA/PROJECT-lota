@@ -1,0 +1,90 @@
+version: "3.8"
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dislove/lotaai:latest
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    environment:
+      - RUST_LOG=${RUST_LOG}
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRY=${JWT_EXPIRY}
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
+      - MODEL_NAME=${MODEL_NAME}
+      - TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE}
+      - GPU_MEMORY_UTILIZATION=${GPU_MEMORY_UTILIZATION}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ENVIRONMENT=${ENVIRONMENT}
+    ports:
+      - "${PORT}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "2"
+        reservations:
+          memory: 1g
+          cpus: "1"
+
+  db:
+    profiles: ["local"]
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1"
+        reservations:
+          memory: 512m
+          cpus: "0.5"
+
+  alloydb-proxy:
+    profiles: ["prod"]
+    image: gcr.io/cloud-sql-connectors/alloydb-auth-proxy:latest
+    command:
+      - --instance-uri=${ALLOYDB_INSTANCE_URI}
+      - --port=5432
+      - --credentials-file=/secrets/alloydb/credentials.json
+    volumes:
+      - ./config/alloydb:/secrets/alloydb:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "5432"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
+
+volumes:
+  cargo-cache:
+  target-cache:
+  postgres-data:
