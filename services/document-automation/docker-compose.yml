@@ -9,12 +9,12 @@ services:
       - "${PORT:-8080}:8080"
     environment:
       - DATABASE_URL=postgresql://${DB_USER:-dev_user}:${DB_PASSWORD:-dev_password}@db:5432/${DB_NAME:-document_automation_dev}
-      - JWT_SECRET=${JWT_SECRET:-development_secret_key}
+      - JWT_KEY=${JWT_KEY:-DO_NOT_USE}
       - RUST_LOG=info
     depends_on:
       - db
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -68,6 +68,7 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+
 
 networks:
   document-automation:

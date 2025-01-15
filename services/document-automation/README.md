@@ -91,7 +91,7 @@ Key configuration options:
 - `server.port`: HTTP server port
 - `storage.provider`: Storage backend (local, s3)
 - `database.url`: PostgreSQL connection string
-- `security.jwt_secret`: JWT signing key
+- `security.jwt_key`: JWT signing key
 
 ## Development
 

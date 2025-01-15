@@ -1,0 +1,36 @@
+[package]
+name = "api-gateway"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "API Gateway service for the LotaBots platform"
+
+[dependencies]
+# Workspace dependencies
+tokio.workspace = true
+actix-web.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+config.workspace = true
+
+# Local dependencies
+lotabots-config = { path = "../../shared/config" }
+lotabots-db = { path = "../../shared/db" }
+lotabots-error = { path = "../../shared/error" }
+lotabots-models = { path = "../../shared/models" }
+lotabots-utils = { path = "../../shared/utils" }
+
+# Service-specific dependencies
+actix-cors = "0.6"
+actix-web-httpauth = "0.8"
+governor = "0.6"
+metrics-runtime = "0.2"
+
+[dev-dependencies]
+lotabots-testing = { path = "../../shared/testing" }
+tokio-test.workspace = true
+mockall.workspace = true

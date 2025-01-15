@@ -1,15 +1,70 @@
-use crate::db::users::User as DbUser;
-use crate::error::AppError;
-use crate::models::auth::{CreateUserRequest, LoginRequest, LoginResponse};
-use crate::models::user::User;
-use crate::auth::{generate_access_token, generate_refresh_token, validate_refresh_token};
+use crate::{
+    auth::{create_access_token, create_refresh_token, validate_token, Claims},
+    error::AppError,
+    models::user::{CreateUserRequest, User},
+};
 use actix_web::{post, web, HttpResponse};
-use bcrypt::{hash, verify, DEFAULT_COST};
-use sqlx::PgPool;
-use uuid::Uuid;
-use validator::Validate;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-pub type AppResult<T> = Result<T, AppError>;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoginRequest {
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RefreshTokenRequest {
+    pub refresh_token: String,
+}
+
+#[post("/register")]
+pub async fn register(
+    pool: web::Data<sqlx::PgPool>,
+    req: web::Json<CreateUserRequest>,
+) -> Result<HttpResponse, AppError> {
+    let user = User::create(&pool, req.0).await?;
+    let claims = Claims::new(user.id.to_string(), user.role.clone());
+
+    let access_token = create_access_token(claims.clone())?;
+    let refresh_jwt = create_refresh_token(claims)?;
+
+    Ok(HttpResponse::Created().json(json!({
+        "user": user,
+        "access_token": access_token,
+        "refresh_token": refresh_jwt,
+    })))
+}
+
+#[post("/login")]
+pub async fn login(
+    pool: web::Data<sqlx::PgPool>,
+    req: web::Json<LoginRequest>,
+) -> Result<HttpResponse, AppError> {
+    let user = User::authenticate(&pool, &req.email, &req.password).await?;
+    let claims = Claims::new(user.id.to_string(), user.role.clone());
+
+    let access_token = create_access_token(claims.clone())?;
+    let refresh_jwt = create_refresh_token(claims)?;
+
+    Ok(HttpResponse::Ok().json(json!({
+        "user": user,
+        "access_token": access_token,
+        "refresh_token": refresh_jwt,
+    })))
+}
+
+#[post("/refresh")]
+pub async fn refresh_token(req: web::Json<RefreshTokenRequest>) -> Result<HttpResponse, AppError> {
+    let claims = validate_token(&req.refresh_token)?;
+    let new_access_token = create_access_token(claims.clone())?;
+    let new_refresh_jwt = create_refresh_token(claims)?;
+
+    Ok(HttpResponse::Ok().json(json!({
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_jwt,
+    })))
+}
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -18,107 +73,4 @@ pub fn config(cfg: &mut web::ServiceConfig) {
             .service(login)
             .service(refresh_token),
     );
-}
-
-#[post("/register")]
-pub async fn register(
-    pool: web::Data<PgPool>,
-    req: web::Json<CreateUserRequest>,
-) -> AppResult<HttpResponse> {
-    req.validate()?;
-
-    let password_hash = hash(req.password.as_bytes(), DEFAULT_COST)
-        .map_err(|e| AppError::Internal(format!("Failed to hash password: {}", e)))?;
-
-    let db_user = sqlx::query_as!(
-        DbUser,
-        r#"
-        INSERT INTO users (username, email, password_hash, role)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, username, email, password_hash, mfa_enabled, mfa_secret, role, created_at, updated_at
-        "#,
-        req.username,
-        req.email,
-        password_hash,
-        req.role.to_string().to_lowercase(),
-    )
-    .fetch_one(&**pool)
-    .await?;
-
-    let user = User::from(db_user);
-    let access_token = generate_access_token(&user)?;
-    let refresh_token_str = generate_refresh_token(&user)?;
-
-    Ok(HttpResponse::Created().json(LoginResponse {
-        access_token,
-        refresh_token: refresh_token_str,
-        user_id: user.id,
-    }))
-}
-
-#[post("/login")]
-pub async fn login(
-    pool: web::Data<PgPool>,
-    req: web::Json<LoginRequest>,
-) -> AppResult<HttpResponse> {
-    req.validate()?;
-
-    let db_user = sqlx::query_as!(
-        DbUser,
-        r#"
-        SELECT id, username, email, password_hash, mfa_enabled, mfa_secret, role, created_at, updated_at
-        FROM users
-        WHERE username = $1
-        "#,
-        req.username
-    )
-    .fetch_one(&**pool)
-    .await
-    .map_err(|_| AppError::Authentication("Invalid username or password".into()))?;
-
-    if !verify(&req.password, &db_user.password_hash)
-        .map_err(|e| AppError::Internal(format!("Failed to verify password: {}", e)))? {
-        return Err(AppError::Authentication("Invalid username or password".into()));
-    }
-
-    let user = User::from(db_user);
-    let access_token = generate_access_token(&user)?;
-    let refresh_token_str = generate_refresh_token(&user)?;
-
-    Ok(HttpResponse::Ok().json(LoginResponse {
-        access_token,
-        refresh_token: refresh_token_str,
-        user_id: user.id,
-    }))
-}
-
-#[post("/refresh")]
-pub async fn refresh_token(
-    pool: web::Data<PgPool>,
-    token: web::Json<String>,
-) -> AppResult<HttpResponse> {
-    let user_id = validate_refresh_token(&token)?;
-
-    let db_user = sqlx::query_as!(
-        DbUser,
-        r#"
-        SELECT id, username, email, password_hash, mfa_enabled, mfa_secret, role, created_at, updated_at
-        FROM users
-        WHERE id = $1
-        "#,
-        user_id
-    )
-    .fetch_one(&**pool)
-    .await
-    .map_err(|_| AppError::Authentication("Invalid refresh token".into()))?;
-
-    let user = User::from(db_user);
-    let access_token = generate_access_token(&user)?;
-    let refresh_token_str = generate_refresh_token(&user)?;
-
-    Ok(HttpResponse::Ok().json(LoginResponse {
-        access_token,
-        refresh_token: refresh_token_str,
-        user_id: user.id,
-    }))
 }

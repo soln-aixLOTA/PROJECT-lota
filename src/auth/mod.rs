@@ -1,15 +1,33 @@
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-use crate::models::user::User;
 use crate::error::AppError;
-use std::time::{SystemTime, UNIX_EPOCH};
-use uuid::Uuid;
+use chrono::{Duration, Utc};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use lazy_static::lazy_static;
+use log::error;
 use serde::{Deserialize, Serialize};
+use std::env;
 
 pub type AppResult<T> = Result<T, AppError>;
 
-lazy_static::lazy_static! {
-    static ref JWT_SECRET: Vec<u8> = std::env::var("JWT_SECRET")
-        .expect("JWT_SECRET must be set")
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Claims {
+    pub sub: String,
+    pub exp: i64,
+    pub role: String,
+}
+
+impl Claims {
+    pub fn new(sub: String, role: String) -> Self {
+        Self {
+            sub,
+            exp: (Utc::now() + Duration::hours(1)).timestamp(),
+            role,
+        }
+    }
+}
+
+lazy_static! {
+    static ref JWT_KEY: Vec<u8> = std::env::var("JWT_KEY")
+        .expect("JWT_KEY must be set")
         .into_bytes();
     static ref ACCESS_TOKEN_EXPIRY: i64 = std::env::var("JWT_ACCESS_TOKEN_EXPIRY")
         .unwrap_or_else(|_| "3600".to_string())
@@ -21,104 +39,59 @@ lazy_static::lazy_static! {
         .unwrap_or(2592000);
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Claims {
-    pub sub: Uuid,
-    pub exp: i64,
-    pub iat: i64,
-    pub jti: String,
-    pub token_type: TokenType,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub enum TokenType {
-    Access,
-    Refresh,
-}
-
-#[derive(Debug, Clone)]
-pub struct AuthUser {
-    pub user_id: Uuid,
-}
-
-pub fn generate_access_token(user: &User) -> AppResult<String> {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|e| AppError::Internal(format!("Failed to get system time: {}", e)))?
-        .as_secs() as i64;
-
-    let claims = Claims {
-        sub: user.id,
-        exp: now + *ACCESS_TOKEN_EXPIRY,
-        iat: now,
-        jti: Uuid::new_v4().to_string(),
-        token_type: TokenType::Access,
-    };
+pub fn create_access_token(claims: Claims) -> AppResult<String> {
+    let jwt_secret = env::var("JWT_SECRET").map_err(|_| {
+        error!("JWT_SECRET not set");
+        AppError::Internal("JWT configuration error".to_string())
+    })?;
 
     encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(&JWT_SECRET),
+        &EncodingKey::from_secret(jwt_secret.as_bytes()),
     )
-    .map_err(|e| AppError::Internal(format!("Failed to create token: {}", e)))
+    .map_err(|e| AppError::Internal(format!("Failed to create access token: {}", e)))
 }
 
-pub fn generate_refresh_token(user: &User) -> AppResult<String> {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|e| AppError::Internal(format!("Failed to get system time: {}", e)))?
-        .as_secs() as i64;
+pub fn create_refresh_token(claims: Claims) -> AppResult<String> {
+    let jwt_secret = env::var("JWT_SECRET").map_err(|_| {
+        error!("JWT_SECRET not set");
+        AppError::Internal("JWT configuration error".to_string())
+    })?;
 
-    let claims = Claims {
-        sub: user.id,
-        exp: now + *REFRESH_TOKEN_EXPIRY,
-        iat: now,
-        jti: Uuid::new_v4().to_string(),
-        token_type: TokenType::Refresh,
-    };
+    let mut refresh_claims = claims;
+    refresh_claims.exp = (Utc::now() + Duration::days(7)).timestamp();
 
     encode(
         &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(&JWT_SECRET),
+        &refresh_claims,
+        &EncodingKey::from_secret(jwt_secret.as_bytes()),
     )
-    .map_err(|e| AppError::Internal(format!("Failed to create token: {}", e)))
+    .map_err(|e| AppError::Internal(format!("Failed to create refresh token: {}", e)))
 }
 
-pub fn validate_access_token(token: &str) -> AppResult<AuthUser> {
-    let mut validation = Validation::default();
-    validation.validate_exp = true;
+pub fn validate_token(token: &str) -> AppResult<Claims> {
+    let jwt_key = env::var("JWT_KEY").map_err(|_| {
+        error!("JWT_KEY not set");
+        AppError::Internal("JWT configuration error".to_string())
+    })?;
 
     let token_data = decode::<Claims>(
         token,
-        &DecodingKey::from_secret(&JWT_SECRET),
-        &validation,
+        &DecodingKey::from_secret(jwt_key.as_bytes()),
+        &Validation::default(),
     )
     .map_err(|e| AppError::Authentication(format!("Invalid token: {}", e)))?;
 
-    if token_data.claims.token_type != TokenType::Access {
-        return Err(AppError::Authentication("Invalid token type".into()));
-    }
-
-    Ok(AuthUser {
-        user_id: token_data.claims.sub,
-    })
+    Ok(token_data.claims)
 }
 
-pub fn validate_refresh_token(token: &str) -> AppResult<Uuid> {
+pub fn get_user_id_from_token(token: &str) -> AppResult<String> {
     let mut validation = Validation::default();
     validation.validate_exp = true;
 
-    let token_data = decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(&JWT_SECRET),
-        &validation,
-    )
-    .map_err(|e| AppError::Authentication(format!("Invalid token: {}", e)))?;
-
-    if token_data.claims.token_type != TokenType::Refresh {
-        return Err(AppError::Authentication("Invalid token type".into()));
-    }
+    let token_data = decode::<Claims>(token, &DecodingKey::from_secret(&JWT_KEY), &validation)
+        .map_err(|e| AppError::Authentication(format!("Invalid token: {}", e)))?;
 
     Ok(token_data.claims.sub)
 }

@@ -2,42 +2,45 @@
 name = "hardware-attestation"
 version = "0.1.0"
 edition = "2021"
-resolver = "2"
 
 [dependencies]
-anyhow = { workspace = true }
-async-trait = { workspace = true }
-aws-config = "1.5.12"
-aws-sdk-s3 = "1.67.0"
-axum = { version = "0.7", features = ["macros"] }
-chrono = { version = "0.4", features = ["serde"] }
-google-cloud-storage = "0.23.0"
-log = "0.4"
-nvml-wrapper = "0.10.0"
-regex = "1.9"
-serde = { workspace = true }
-serde_json = { workspace = true }
-sqlx = { version = "0.7", features = [
-    "runtime-tokio-rustls",
-    "postgres",
-    "uuid",
-    "chrono",
-    "migrate",
-] }
+tokio = { version = "1.0", features = ["full"] }
 thiserror = "1.0"
-tokio = { workspace = true, features = ["full"] }
-toml = "0.8"
-tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.5", features = ["trace", "cors"] }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-uuid = { version = "1.4", features = ["v4", "serde"] }
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+plotters = "0.3"
+sysinfo = "0.29"
+prometheus = "0.13"
+futures = "0.3"
+actix-web = "4.4"
+tracing = "0.1"
+tracing-subscriber = "0.3"
 
 [dev-dependencies]
+criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
 tokio-test = "0.4"
-mockall = "0.13.1"
 test-log = "0.2"
-wiremock = "0.6.2"
-tempfile = "3.8"
-rand = "0.8"
-futures = { workspace = true }
+iai = "0.1"
+
+[[bench]]
+name = "gpu_benchmarks"
+path = "benches/gpu_benchmarks.rs"
+harness = false
+
+[[bench]]
+name = "gpu_allocations"
+path = "benches/gpu_allocations.rs"
+harness = false
+
+[lib]
+name = "hardware_attestation"
+path = "src/lib.rs"
+
+[[bin]]
+name = "hardware-attestation"
+path = "src/main.rs"
+
+# Custom build script to compile Zig code
+[package.metadata.build]
+zig_nvml = { path = "src/zig" }

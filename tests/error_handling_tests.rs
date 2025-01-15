@@ -1,4 +1,4 @@
-use actix_web::{test, ResponseError};
+use actix_web::ResponseError;
 use document_automation::error::AppError;
 
 #[actix_web::test]
@@ -13,4 +13,4 @@ async fn test_error_status_codes() {
         let response = error.error_response();
         assert_eq!(response.status().as_u16(), expected_status);
     }
-} 
+}

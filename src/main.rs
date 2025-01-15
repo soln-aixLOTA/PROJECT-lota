@@ -2,7 +2,7 @@ use actix_web::{middleware, web, App, HttpServer};
 use document_automation::{
     config::AppConfig,
     handlers,
-    middleware::{auth::AuthMiddleware, RequestId, SecurityHeaders},
+    middleware::{RequestId, SecurityHeaders},
 };
 use dotenv::dotenv;
 use sqlx::postgres::PgPool;

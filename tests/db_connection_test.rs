@@ -24,16 +24,15 @@ async fn test_db_migrations() {
     let pool = PgPool::connect(&database_url).await.unwrap();
 
     // Test that migrations can be applied
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .unwrap();
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     // Test that users table exists
-    let result = sqlx::query!("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users')")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let result = sqlx::query!(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users')"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
 
     assert!(result.exists.unwrap());
 }

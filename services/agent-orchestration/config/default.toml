@@ -14,7 +14,7 @@ level = "info"
 format = "json"
 
 [security]
-jwt_secret = "your-secret-key-here"
+jwt_key = "${JWT_KEY}"
 token_expiry = 86400                # 24 hours in seconds
 
 [agents]

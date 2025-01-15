@@ -1,10 +1,11 @@
 pub mod auth;
+pub mod jwt;
 pub mod rate_limit;
-mod jwt;
-mod request_id;
-mod security;
+pub mod request_id;
+pub mod security;
 
-pub use jwt::JwtMiddleware;
+pub use auth::Auth;
+pub use jwt::JwtAuthMiddleware;
 pub use rate_limit::RateLimiter;
 pub use request_id::RequestId;
-pub use security::SecurityHeaders; 
+pub use security::SecurityHeaders;

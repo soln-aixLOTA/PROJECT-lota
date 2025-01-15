@@ -1,0 +1,89 @@
+\section{Deep Thinking for Math Reasoning}
+
+Below, we detail how small language models (SLMs) can be trained to rival or surpass certain advanced LLMs on math problems, employing Monte Carlo Tree Search (MCTS) with a process preference model (PPM).
+
+\subsection{Monte Carlo Tree Search (MCTS)}
+
+MCTS decomposes a complex math problem into multiple single-step generations, improving the accuracy and step-level verification. In each step, a \emph{policy SLM} proposes candidate expansions (one-step CoT plus code), which are evaluated by a \emph{process reward model} or PPM. This is repeated in rollouts to refine step-level Q-values.
+
+The MCTS process follows these key steps:
+\begin{itemize}
+    \item \textbf{Selection}: Choose promising nodes based on UCB scores
+    \item \textbf{Expansion}: Generate candidate next steps using the policy SLM
+    \item \textbf{Simulation}: Evaluate paths using the process reward model
+    \item \textbf{Backpropagation}: Update Q-values and visit counts
+\end{itemize}
+
+\subsection{Self-Evolved Deep Thinking}
+
+We initialize a 7B policy SLM and a 7B reward model (PPM), iterating through rounds to generate high-quality step-by-step verified trajectories. The training process involves:
+
+\begin{itemize}
+    \item \textbf{Initial Training}:
+    \begin{itemize}
+        \item Fine-tune policy SLM on curated math examples
+        \item Train PPM on human-labeled reasoning steps
+    \end{itemize}
+    \item \textbf{Iterative Improvement}:
+    \begin{itemize}
+        \item Generate reasoning trajectories using MCTS
+        \item Filter high-quality solutions
+        \item Update both policy and reward models
+    \end{itemize}
+    \item \textbf{Verification}:
+    \begin{itemize}
+        \item Step-by-step validation
+        \item Code execution for numerical verification
+        \item Human expert review of novel approaches
+    \end{itemize}
+\end{itemize}
+
+\subsection{Performance Highlights}
+
+Our approach achieves significant results across various benchmarks:
+
+\begin{itemize}
+    \item \textbf{MATH Benchmark}:
+    \begin{itemize}
+        \item 90.0\% accuracy with 7B policy SLM
+        \item Surpasses certain open-source and commercial LLMs
+        \item Strong performance on algebra and calculus
+    \end{itemize}
+    \item \textbf{AIME 2024}:
+    \begin{itemize}
+        \item 53.3\% solve rate
+        \item Approaches top 20\% of high school students
+        \item Consistent performance across problem types
+    \end{itemize}
+    \item \textbf{College Math}:
+    \begin{itemize}
+        \item Up to 60.5\% accuracy
+        \item Strong generalization to unseen topics
+        \item Effective multi-step reasoning
+    \end{itemize}
+\end{itemize}
+
+\subsection{Integration with Microservices}
+
+The deep thinking capabilities are integrated into the \sysname{} platform through:
+
+\begin{itemize}
+    \item \textbf{Model Serving}:
+    \begin{itemize}
+        \item Containerized deployment of SLMs
+        \item GPU resource management
+        \item Load balancing for inference
+    \end{itemize}
+    \item \textbf{Verification Pipeline}:
+    \begin{itemize}
+        \item Automated step validation
+        \item Code execution environment
+        \item Result persistence and caching
+    \end{itemize}
+    \item \textbf{Monitoring}:
+    \begin{itemize}
+        \item Performance metrics tracking
+        \item Resource utilization monitoring
+        \item Error rate and latency tracking
+    \end{itemize}
+\end{itemize}

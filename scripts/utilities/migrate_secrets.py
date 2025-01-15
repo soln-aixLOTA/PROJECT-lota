@@ -10,7 +10,7 @@ def load_secrets_from_env() -> Dict[str, Any]:
     """Load secrets from environment files"""
     secrets = {}
     env_files = ['.env', '.env.local', '.env.development', '.env.production']
-    
+
     for env_file in env_files:
         if os.path.exists(env_file):
             with open(env_file, 'r') as f:
@@ -19,28 +19,35 @@ def load_secrets_from_env() -> Dict[str, Any]:
                     if line and not line.startswith('#'):
                         try:
                             key, value = line.split('=', 1)
-                            secrets[key.strip()] = value.strip()
+                            key = key.strip()
+                            value = value.strip()
+
+                            # Skip if value is empty or placeholder
+                            if not value or value.startswith('${') or 'CHANGE_ME' in value or 'DO_NOT_USE' in value:
+                                continue
+
+                            secrets[key] = value
                         except ValueError:
                             print(f"Warning: Skipping malformed line in {env_file}: {line}")
-    
+
     return secrets
 
 def get_vault_client() -> hvac.Client:
     """Initialize and return an authenticated Vault client"""
     vault_addr = os.getenv('VAULT_ADDR', 'http://vault.lotabots.svc:8200')
     vault_token = os.getenv('VAULT_TOKEN')
-    
+
     if not vault_token:
         raise ValueError("VAULT_TOKEN environment variable must be set")
-    
+
     client = hvac.Client(
         url=vault_addr,
         token=vault_token
     )
-    
+
     if not client.is_authenticated():
         raise Exception("Failed to authenticate with Vault")
-    
+
     return client
 
 def migrate_secrets_to_vault(client: hvac.Client, secrets: Dict[str, Any]) -> None:
@@ -54,21 +61,21 @@ def migrate_secrets_to_vault(client: hvac.Client, secrets: Dict[str, Any]) -> No
         'AZURE_': 'cloud/azure',
         'GOOGLE_': 'cloud/google',
     }
-    
+
     # Group secrets by their type
     grouped_secrets: Dict[str, Dict[str, str]] = {}
-    
+
     for key, value in secrets.items():
         path = 'misc'  # default path
         for prefix, secret_path in secret_paths.items():
             if key.startswith(prefix):
                 path = secret_path
                 break
-        
+
         if path not in grouped_secrets:
             grouped_secrets[path] = {}
         grouped_secrets[path][key] = value
-    
+
     # Write secrets to Vault
     for path, secret_data in grouped_secrets.items():
         try:
@@ -88,18 +95,18 @@ def main():
         if not secrets:
             print("No secrets found in environment files")
             return
-        
+
         # Get Vault client
         client = get_vault_client()
-        
+
         # Migrate secrets to Vault
         migrate_secrets_to_vault(client, secrets)
-        
+
         print("\nSecret migration completed successfully!")
-        
+
     except Exception as e:
         print(f"Error during secret migration: {str(e)}", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == '__main__':
-    main() 
+    main()

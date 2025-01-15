@@ -7,7 +7,7 @@ RED='\033[0;31m'
 NC='\033[0m'  # No Color
 
 # Test configuration
-TEST_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXIiLCJyb2xlcyI6WyJ1c2VyIl0sImV4cCI6MTcwOTI0NzQwMH0.8J7siuZBfgqDYc4OgxBjuXBA_TPYUZGv8_PQ3BOsGbQ"
+TEST_TOKEN="TEST_TOKEN_DO_NOT_USE_IN_PRODUCTION"
 
 # Log functions
 log_info() {
@@ -26,7 +26,7 @@ log_error() {
 test_scenarios() {
     local scenarios=("crud" "workflow" "mixed" "security")
     local failed=0
-    
+
     for scenario in "${scenarios[@]}"; do
         log_info "Running $scenario scenario..."
         if ! ./load-test.sh --scenario "$scenario" --token "$TEST_TOKEN" --test; then
@@ -38,7 +38,7 @@ test_scenarios() {
         echo
         sleep 2  # Brief pause between scenarios
     done
-    
+
     # Test with metrics output
     log_info "Running mixed scenario with Prometheus metrics..."
     if ! ./load-test.sh --scenario mixed --output prometheus --token "$TEST_TOKEN" --test; then
@@ -47,7 +47,7 @@ test_scenarios() {
     else
         log_info "Mixed scenario with Prometheus metrics completed successfully"
     fi
-    
+
     return $failed
 }
 
@@ -55,23 +55,23 @@ test_scenarios() {
 main() {
     # Make load-test.sh executable if it isn't already
     chmod +x load-test.sh
-    
+
     log_info "Starting test suite..."
-    
+
     # Validate environment
     if ! ./load-test.sh --help &> /dev/null; then
         log_error "load-test.sh script not found or not executable"
         exit 1
     fi
-    
+
     # Run all test scenarios
     if ! test_scenarios; then
         log_error "Some tests failed"
         exit 1
     fi
-    
+
     log_info "All tests completed successfully"
 }
 
 # Run main function
-main 
+main

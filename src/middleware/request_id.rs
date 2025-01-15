@@ -14,6 +14,12 @@ impl RequestId {
     }
 }
 
+impl Default for RequestId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S, B> Transform<S, ServiceRequest> for RequestId
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
@@ -54,7 +60,7 @@ where
 
     fn call(&self, mut req: ServiceRequest) -> Self::Future {
         let request_id = Uuid::new_v4().to_string();
-        
+
         req.headers_mut().insert(
             HeaderName::from_static("x-request-id"),
             HeaderValue::from_str(&request_id).unwrap(),
@@ -72,4 +78,4 @@ where
             Ok(res)
         })
     }
-} 
+}

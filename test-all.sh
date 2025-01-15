@@ -9,7 +9,7 @@ source ./set-env.sh --env test
 log_info "Starting test suite..."
 
 # Generate test token
-TEST_TOKEN=$(./dev-token.sh --user test --role admin --secret "$JWT_SECRET" --expiration "$JWT_EXPIRATION")
+TEST_TOKEN=$(./dev-token.sh --user test --role admin --key "$JWT_SECRET" --expiration "$JWT_EXPIRATION")
 if [ -z "$TEST_TOKEN" ]; then
     log_error "Failed to generate test token"
     exit 1
@@ -67,4 +67,4 @@ else
     exit 1
 fi
 
-log_info "All tests completed successfully" 
+log_info "All tests completed successfully"

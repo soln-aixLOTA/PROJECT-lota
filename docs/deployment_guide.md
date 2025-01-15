@@ -250,9 +250,9 @@ metadata:
   namespace: lotabots
 type: Opaque
 data:
+  JWT_KEY: <base64-encoded-key>
   DATABASE_URL: <base64-encoded-url>
   REDIS_URL: <base64-encoded-url>
-  JWT_SECRET: <base64-encoded-secret>
 ```
 
 ## Deployment Verification

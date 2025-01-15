@@ -10,7 +10,7 @@ provider = "local"
 base_path = "./uploads"
 
 [security]
-jwt_secret = "your-secret-key-here"
+jwt_key = "${JWT_SECRET}"
 token_expiry = 86400                # 24 hours in seconds
 
 [logging]

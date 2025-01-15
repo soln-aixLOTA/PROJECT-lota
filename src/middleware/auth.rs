@@ -1,88 +1,85 @@
-use crate::auth::validate_access_token;
 use actix_web::{
-    dev::{Service, ServiceRequest, ServiceResponse, Transform},
-    error::ErrorUnauthorized,
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage,
 };
-use futures_util::future::{ready, LocalBoxFuture, Ready};
-use std::rc::Rc;
+use futures::future::{ready, LocalBoxFuture, Ready};
 
-#[derive(Clone)]
-pub struct AuthMiddleware;
+use crate::{auth::validate_token, AppError};
 
-impl<S> Transform<S, ServiceRequest> for AuthMiddleware
+#[allow(dead_code)]
+pub struct Auth<S> {
+    service: S,
+}
+
+impl<S, B> Transform<S, ServiceRequest> for Auth<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse, Error = Error> + 'static,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    B: 'static,
 {
-    type Response = ServiceResponse;
+    type Response = ServiceResponse<B>;
     type Error = Error;
     type InitError = ();
-    type Transform = AuthMiddlewareService<S>;
+    type Transform = AuthMiddleware<S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(AuthMiddlewareService {
-            service: Rc::new(service),
-        }))
+        ready(Ok(AuthMiddleware { service }))
     }
 }
 
-pub struct AuthMiddlewareService<S> {
-    service: Rc<S>,
+pub struct AuthMiddleware<S> {
+    service: S,
 }
 
-impl<S> Service<ServiceRequest> for AuthMiddlewareService<S>
+impl<S, B> Service<ServiceRequest> for AuthMiddleware<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse, Error = Error> + 'static,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    B: 'static,
 {
-    type Response = ServiceResponse;
+    type Response = ServiceResponse<B>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(
-        &self,
-        ctx: &mut core::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        self.service.poll_ready(ctx)
-    }
+    forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let auth_header = req
+        // Extract auth header immediately (sync)
+        let header_opt = req
             .headers()
             .get("Authorization")
-            .ok_or_else(|| ErrorUnauthorized("Missing Authorization header"));
+            .and_then(|val| val.to_str().ok())
+            .and_then(|s| s.strip_prefix("Bearer "));
 
-        let auth_header = match auth_header {
-            Ok(header) => header,
-            Err(e) => return Box::pin(async move { Err(e) }),
-        };
-
-        let auth_str = match auth_header.to_str() {
-            Ok(str) => str,
-            Err(_) => {
-                return Box::pin(async move {
-                    Err(ErrorUnauthorized("Invalid Authorization header"))
-                })
-            }
-        };
-
-        let token = match auth_str.strip_prefix("Bearer ") {
-            Some(token) => token.trim(),
+        // If no valid Bearer token, return error right away
+        let token = match header_opt {
+            Some(tok) => tok,
             None => {
-                return Box::pin(async move {
-                    Err(ErrorUnauthorized("Invalid Authorization header format"))
-                })
+                let fut = async move {
+                    Err(Error::from(AppError::Authentication(
+                        "Missing or invalid authorization header".to_string(),
+                    )))
+                };
+                return Box::pin(fut);
             }
         };
 
-        let service = self.service.clone();
-        match validate_access_token(token) {
-            Ok(auth_user) => {
-                let mut req = req;
-                req.extensions_mut().insert(auth_user);
-                Box::pin(async move { service.call(req).await })
+        // Validate token synchronously
+        let claims = match validate_token(token) {
+            Ok(c) => c,
+            Err(e) => {
+                let err_string = e.to_string();
+                let fut = async move { Err(Error::from(AppError::Authentication(err_string))) };
+                return Box::pin(fut);
             }
-            Err(_) => Box::pin(async move { Err(ErrorUnauthorized("Invalid token")) }),
-        }
+        };
+
+        // Insert claims and call next service
+        let req = req;
+        req.extensions_mut().insert(claims);
+        let fut = self.service.call(req);
+        Box::pin(async move {
+            let res = fut.await?;
+            Ok(res)
+        })
     }
-} 
+}

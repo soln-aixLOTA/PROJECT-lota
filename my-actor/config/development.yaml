@@ -1,0 +1,20 @@
+# Development environment configuration
+extends: base.yaml
+
+gpu:
+  batch_size: 4  # Smaller batch size for development
+
+monitoring:
+  log_level: "DEBUG"
+  metrics_update_interval: 0.5
+
+processing:
+  max_concurrent_requests: 5
+  request_timeout: 60  # Longer timeout for debugging
+
+# Development-specific settings
+development:
+  enable_profiling: true
+  debug_mode: true
+  hot_reload: true
+  test_mode: false

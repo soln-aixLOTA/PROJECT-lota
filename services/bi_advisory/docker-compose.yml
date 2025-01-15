@@ -49,7 +49,7 @@ services:
     ports:
       - "8088:8088"
     environment:
-      - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
+      - JWT_KEY=${JWT_KEY}
     depends_on:
       - postgres
 

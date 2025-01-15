@@ -1,13 +1,12 @@
-use crate::error::AppError;
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error,
 };
 use futures_util::future::{ready, LocalBoxFuture, Ready};
-use std::time::Instant;
 use std::collections::HashMap;
-use std::sync::Mutex;
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::Instant;
 
 #[derive(Clone)]
 pub struct RateLimiter {
@@ -50,6 +49,7 @@ where
 
 pub struct RateLimiterMiddleware<S> {
     service: S,
+    #[allow(dead_code)]
     requests_per_second: f64,
     burst: f64,
     state: Arc<Mutex<HashMap<String, Vec<Instant>>>>,
@@ -68,13 +68,14 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let ip = req.peer_addr()
+        let ip = req
+            .peer_addr()
             .map(|addr| addr.ip().to_string())
             .unwrap_or_else(|| "unknown".to_string());
 
         let now = Instant::now();
         let mut state = self.state.lock().unwrap();
-        let timestamps = state.entry(ip).or_insert_with(Vec::new);
+        let timestamps = state.entry(ip).or_default();
 
         // Remove old timestamps
         timestamps.retain(|&ts| now.duration_since(ts).as_secs_f64() <= 1.0);
@@ -82,13 +83,13 @@ where
         if timestamps.len() as f64 <= self.burst {
             timestamps.push(now);
             let fut = self.service.call(req);
-            Box::pin(async move {
-                fut.await
-            })
+            Box::pin(fut)
         } else {
             Box::pin(async move {
-                Err(actix_web::error::ErrorTooManyRequests("Rate limit exceeded"))
+                Err(actix_web::error::ErrorTooManyRequests(
+                    "Rate limit exceeded",
+                ))
             })
         }
     }
-} 
+}

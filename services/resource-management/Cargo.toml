@@ -1,0 +1,38 @@
+[package]
+name = "lotabots-resource-management"
+version = "0.1.0"
+edition = "2021"
+description = "Resource Management service for LotaBots platform"
+
+[dependencies]
+# Core dependencies
+actix-web = "4.4"
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Shared libraries
+lotabots-config = { path = "../../shared/config" }
+lotabots-db = { path = "../../shared/db" }
+lotabots-error = { path = "../../shared/error" }
+lotabots-models = { path = "../../shared/models" }
+lotabots-utils = { path = "../../shared/utils" }
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
+uuid = { version = "1.0", features = ["serde", "v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging and metrics
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+[dev-dependencies]
+lotabots-testing = { path = "../../shared/testing" }
+actix-rt = "2.9"

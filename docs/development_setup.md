@@ -128,8 +128,24 @@ PORT=8080
 HOST=0.0.0.0
 RUST_LOG=debug
 
-# Security
-JWT_SECRET=your-secret-key-here  # Change this in production!
+# Security Configuration
+# JWT Secret Management:
+# For development:
+#   1. Generate a secure random value:
+#      JWT_SECRET=$(openssl rand -hex 32)
+#   2. Add it to your .env file:
+#      echo "JWT_SECRET=$JWT_SECRET" >> .env
+#   3. Or export it in your shell:
+#      export JWT_SECRET=$JWT_SECRET
+#
+# For production:
+#   - NEVER commit JWT secrets to version control
+#   - Use a secure secret management solution:
+#     * HashiCorp Vault
+#     * AWS Secrets Manager
+#     * Azure Key Vault
+#     * Google Cloud Secret Manager
+#
 JWT_EXPIRATION_HOURS=24
 
 # Redis Configuration
@@ -273,3 +289,39 @@ For additional help:
 - Create an issue in the repository
 - Contact the development team
 - Check the troubleshooting guide
+
+## Environment Variables and Secrets
+
+For local development:
+
+1. Copy `.env.example` to `.env`
+2. Generate secure random values for secrets:
+   ```bash
+   # On Linux/Mac
+   echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env
+   ```
+3. Never commit `.env` file or actual secret values to version control
+4. For production, use secure secret management solutions (e.g., AWS Secrets Manager, HashiCorp Vault)
+
+### Setting up Secrets
+
+For local development:
+
+1. Generate a secure JWT secret:
+```bash
+# Generate a secure random secret
+# DO NOT commit the actual value to version control!
+JWT_SECRET=$(openssl rand -hex 32)
+
+# Add it to your .env file (make sure .env is in .gitignore!)
+echo "JWT_SECRET=DO_NOT_USE" >> .env  # First add placeholder
+sed -i "s/DO_NOT_USE/$JWT_SECRET/" .env  # Then replace it with actual value
+
+# Or export it directly in your shell (preferred for development)
+export JWT_SECRET=$JWT_SECRET
+```
+
+⚠️ **IMPORTANT**:
+- Never commit the actual JWT secret to version control
+- Use different secrets for development, testing, and production
+- In production, use a secrets management solution (e.g., AWS Secrets Manager, HashiCorp Vault)

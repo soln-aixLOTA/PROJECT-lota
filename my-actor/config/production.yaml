@@ -1,0 +1,27 @@
+# Production environment configuration
+extends: base.yaml
+
+gpu:
+  batch_size: 16  # Larger batch size for production
+  model_parallel_threshold: 768  # More aggressive model parallelism
+
+monitoring:
+  log_level: "WARNING"
+  metrics_update_interval: 2.0
+
+processing:
+  max_concurrent_requests: 20
+  max_retries: 5
+  retry_delay: 2.0
+
+# Production-specific settings
+production:
+  enable_profiling: false
+  enable_caching: true
+  cache_ttl: 3600
+  health_check_interval: 300
+  alert_thresholds:
+    gpu_memory_percent: 90
+    gpu_utilization_percent: 95
+    error_rate_threshold: 0.01
+    response_time_threshold: 5.0

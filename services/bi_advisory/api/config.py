@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     )
 
     # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
+    JWT_SECRET: str = os.getenv("JWT_SECRET")  # Required environment variable
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "11520"))  # 8 days
 
     # CORS Configuration
     BACKEND_CORS_ORIGINS: list = ["*"]  # In production, replace with specific origins

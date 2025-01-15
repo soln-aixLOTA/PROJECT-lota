@@ -86,7 +86,9 @@ where
         }
 
         let token = &auth_header[7..];
-        let jwt_auth = JwtAuth::new(b"your-secret-key"); // In production, use a secure secret key
+        let jwt_secret = std::env::var("JWT_SECRET")
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Authentication configuration missing".to_string()))?;
+        let jwt_auth = JwtAuth::new(jwt_secret.as_bytes());
         let claims = jwt_auth
             .validate_token(token)
             .map_err(|e| (StatusCode::UNAUTHORIZED, e.to_string()))?;

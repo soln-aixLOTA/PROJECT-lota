@@ -33,8 +33,9 @@ async fn test_auth_flow() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(pool.clone()))
-            .configure(handlers::auth::config)
-    ).await;
+            .configure(handlers::auth::config),
+    )
+    .await;
 
     // Test registration
     let register_request = CreateUserRequest {

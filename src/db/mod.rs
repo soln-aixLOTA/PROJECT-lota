@@ -1,5 +1,5 @@
-use sqlx::PgPool;
 use crate::error::AppError;
+use sqlx::PgPool;
 pub type DbResult<T> = Result<T, AppError>;
 
 pub mod documents;
@@ -23,5 +23,5 @@ impl Database {
 pub async fn init_db(database_url: &str) -> DbResult<PgPool> {
     PgPool::connect(database_url)
         .await
-        .map_err(|e| AppError::Database(e))
+        .map_err(AppError::Database)
 }

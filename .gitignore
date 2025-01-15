@@ -1,36 +1,75 @@
-# Dependencies
-/target/
-**/target/
-/node_modules/
-/.cargo/
-/.venv/
-/.next/
-
-# Environment variables
+# Environment and secrets
 .env
-**/.env
-
-# IDE and editor files
-/.vscode/
-/.idea/
-/.codegpt/
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+*.jks
+secrets/
+credentials/
 
 # Build artifacts
-*.o
-*.so
-*.dylib
-*.dll
-*.exe
-*.lock
-/coverage/
+/target/
+**/*.rs.bk
+Cargo.lock
 
-# Logs
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs and temporary files
 *.log
-/logs/
+logs/
+tmp/
+temp/
+.tmp/
 
-# Kubernetes secrets
-/config/kubernetes/base/ngc-secret.yaml
-/config/kubernetes/base/nim-secrets.yaml
+# OS-specific files
+.DS_Store
+Thumbs.db
 
-# SQLx
-/.sqlx/
+# Test coverage
+coverage/
+.coverage
+htmlcov/
+
+# Dependencies
+/node_modules/
+/.pnp
+.pnp.js
+
+# Debug files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local development
+docker-compose.override.yml
+.local/
+local/
+
+# Rust specific
+**/target/
+**/*.rs.bk
+**/debug/
+**/release/
+**/*.d
+**/*.rlib
+**/*.rmeta
+**/*.so
+**/*.dylib
+**/*.dll
+**/*.a
+**/*.lib
+**/*.o
+**/*.obj
+
+# Container update logs and backups
+container_updates.log
+.container_backups/

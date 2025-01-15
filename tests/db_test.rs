@@ -19,16 +19,13 @@ async fn test_db_operations() {
     .await
     .unwrap();
 
-    assert!(result.id.to_string().len() > 0);
+    assert!(!result.id.to_string().is_empty());
 
     // Test user retrieval
-    let user = sqlx::query!(
-        "SELECT username, email FROM users WHERE id = $1",
-        result.id
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let user = sqlx::query!("SELECT username, email FROM users WHERE id = $1", result.id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
     assert_eq!(user.username, "testuser");
     assert_eq!(user.email, "test@example.com");

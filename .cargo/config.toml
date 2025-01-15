@@ -1,0 +1,49 @@
+[build]
+rustdocflags = [
+    "--html-in-header",
+    "docs/assets/header.html",
+    "--html-before-content",
+    "docs/assets/before-content.html",
+    "--html-after-content",
+    "docs/assets/after-content.html",
+]
+
+[doc]
+# Enable extended documentation features
+enable-index-page = true
+private-documentation = true
+
+# Configure external documentation links
+external-docs = [
+    "https://docs.rs/tokio",
+    "https://docs.rs/axum",
+    "https://docs.rs/sqlx",
+]
+
+[doc.html]
+# Theme customization
+playground-line-numbers = true
+playground-copy-button = true
+playground-focus = true
+
+# Search configuration
+search-enabled = true
+search-js = "docs/assets/search.js"
+
+[doc.html.playground]
+# Configure playground settings
+editable = true
+copyable = true
+line-numbers = true
+
+[doc.html.theme]
+# Theme options
+preferred-dark-theme = true
+rust-logo = "docs/assets/logo.svg"
+
+[alias]
+# Documentation generation aliases
+doc-all = "doc --workspace --no-deps --document-private-items"
+doc-open = "doc --workspace --no-deps --document-private-items --open"
+doc-coverage = "doc --workspace --no-deps --document-private-items --coverage"
+doc-check = "doc --workspace --no-deps --document-private-items --check"

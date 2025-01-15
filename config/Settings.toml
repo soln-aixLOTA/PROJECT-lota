@@ -7,7 +7,7 @@ url = "postgres://dev_user:dev_password@localhost:5432/document_automation_dev"
 max_connections = 5
 
 [security]
-jwt_secret = "development_secret_key"
+jwt_key = "${JWT_SECRET}"  # Set this securely in your environment
 jwt_expiration = 3600                 # 1 hour
 
 [storage]

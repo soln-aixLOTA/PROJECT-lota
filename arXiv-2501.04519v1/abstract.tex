@@ -1,0 +1,74 @@
+\vspace{-2ex}
+\begin{abstract}
+	\vspace{-1ex}	
+
+We present {\sysname} to demonstrate that small language models (SLMs) can rival or even surpass the math reasoning capability of  OpenAI o1, without distillation from superior models. \sysname{} achieves this by exercising ``deep thinking'' through Monte Carlo Tree Search (MCTS), where a math \emph{policy SLM} performs test-time search guided by an SLM-based \emph{process reward model}. \sysname{} introduces three innovations to tackle the challenges in training the two SLMs:
+\textbf{(1)} a novel code-augmented CoT data sythesis method, which performs extensive MCTS rollouts to generate \textit{step-by-step verified reasoning trajectories} used to train the policy SLM; 
+\textbf{(2)} a novel process reward model training method that avoids na\"ive step-level score annotation, yielding a more effective \textit{process preference model (PPM)}; 
+\textbf{(3)} a \textit{self-evolution recipe} in which the policy SLM and PPM are built from scratch and iteratively evolved to improve reasoning capabilities. 
+Through 4 rounds of self-evolution with millions of synthesized solutions for 747k math problems, {\sysname} boosts SLMs' math reasoning to state-of-the-art levels. On the MATH benchmark, it improves Qwen2.5-Math-7B from 58.8\% to 90.0\% and Phi3-mini-3.8B from 41.4\% to 86.4\%, surpassing o1-preview by +4.5\% and +0.9\%. On the USA Math Olympiad (AIME), {\sysname} solves an average of 53.3\% (8/15) of problems, ranking among the top 20\% the brightest high school math students. Code and data will be available at \url{https://github.com/microsoft/rStar}.
+
+
+
+%We present {\sysname}, which, for the first time, demonstrates that  surprisingly small language models  (SLMs, 1.5B-7B) can achieve frontier-level math reasoning, rivaling or even surpassing OpenAI o1 without superior model distillation. This is achieved by training a math \textit{policy SLM} and a 7B \textit{process reward model} to enable ``deep thinking'' through  Monte Carlo Tree Search (MCTS), where the policy SLM  performs test-time search guided by  the process reward model. To tackle the significant challenges in training the two SLMs, we introduce three key innovations:  \textbf{(1)} a novel self-generating data paradigm that uses extensive MCTS rollouts with code-augmented CoT to generate  \textit{step-by-step verified reasoning trajectories};    \textbf{(2)} a novel process reward model training method that eliminates the need for precise step-level score annotation, yielding more effective \textit{process preference model (PPM)}; \textbf{(3)} a \textit{self-evolution recipe} in which the policy SLM and PPM are built from scratch and iteratively evolved to improve reasoning capabilities. Through 4 rounds of self-evolution with millions of synthesized  solutions for 747k math problems, {\sysname} consistently boosts  SLMs math reasoning to state-of-the-art levels. On the MATH benchmark, it improves Qwen2.5-Math-7B from 58.8\% to 90.0\% and Phi3-mini-3.8B from 41.4\% to 86.4\%, surpassing o1-preview by +4.5\% and +0.9\%. On the USA Math Olympiad (AIME), {\sysname} solves on average 53.3\% (8/15) of problems, ranking in the top 20\% among the brightest high school math students. Code and data will be available at \url{https://github.com/microsoft/rStar}.%Additionally, without explicitly training or prompting, {\sysname} interestingly exhibits emergent intrinsic self-reflection during its deep thinking process.% Code and data will be available at \url{https://github.com/microsoft/rStar}.
+
+
+
+
+%We present {\sysname}, which, for the first time,  demonstrates that surprisingly small language models (SLMs, 1.5B-7B) can achieve frontier-level math reasoning, rivaling or even surpassing OpenAI o1.  %We present {\sysname} that, for the first time,  enables small language models (SLMs, 1.5B-7B) to achieve  frontier math reasoning on par with, or even outperforming OpenAI o1. 
+%{\sysname} integrates Monte Carlo Tree Search (MCTS) to ``think deeply'' before generating a final solution, where a \textit{policy SLM} performs test-time search guided by a \textit{process reward model}.  
+%To train the two SLMs effectively, we propose three key innovations:  
+%\textbf{(1)} a novel self-generating data paradigm that uses extensive MCTS rollouts with code-augmented CoT to generate  \textit{step-by-step verified reasoning trajectories}; 
+%  \textbf{(1)} a novel paradigm for self-generating high-quality math training data, which runs extensive MCTS rollouts with code-augmented CoT to generate \textit{step-by-step verified trajectories}; 
+%\textbf{(2)} a novel process reward model training method that eliminates the need for precise step-level score annotation, yielding more effective 
+%\textit{process preference model (PPM)}; \textbf{(3)} a \textit{self-evolution recipe} in which the policy SLM and PPM are built from scratch and iteratively evolve to improve reasoning capabilities. Through 4 rounds of self-evolution,  generating progressively higher-quality   solutions for 747k math problems, {\sysname} consistently boosts  SLMs math reasoning to state-of-the-art levels. On the MATH benchmark, it improves Qwen2.5-Math-7B from 58.8\% to 90.0\% and Phi3-mini-3.8B from 41.4\% to 86.4\%, surpassing o1-preview by +4.5\% and +0.9\%. On the USA Math Olympiad (AIME), {\sysname} solves on average 53.3\% (8/15) of problems, ranking in the top 20\% among the brightest high school math students. Code and data will be available at \url{https://github.com/microsoft/rStar}.
+
+%We introduce {\sysname}, a self-evolved deep thinking approach that empowers small language models (SLMs) to achieve frontier math reasoning capabilities, rivaling or even surpassing OpenAI o1. {\sysname} leverages Monte Carlo Tree Search (MCTS) to think deeply before generating a final answer, where a \textit{policy SLM} proposes diverse thoughts against   a \textit{process reward model}. To build the two models, we introduce three key innovations: \textbf{(i)} a novel code-augmented Chain-of-Thought (CoT)  synthetic method with extensive MCTS rollouts to generate high-quality training data of \textit{step-by-step verified reasoning trajectories},  eliminating erroneous low-quality intermediate steps; \textbf{(ii)} a new \textit{process preference model (PPM)} that provides reliable step-level reward score without requiring precise score annotations; \textbf{(iii)} a \textit{self-evolution recipe} where the policy SLM and PPM are built from scratch and iteratively evolve to improve reasoning capabilities. Through four rounds of self-evolution with millions of self-synthesized reasoning trajectories, {\sysname} enables SLMs with state-of-the-art reasoning capabilities.  On the MATH benchmark, it improves Qwen2.5-Math-7B from 58.8\% to 90.0\% and Phi3-mini-3.8B from 41.4\% to 86.4\%, surpassing o1-preview by +4.5\% and +0.9\%. On the USA Math Olympiad (AIME), {\sysname} solves on average 53.3\% (8/15) of problems, ranking in the top 20\% among the brightest high school math students. Code and data will be available at \url{https://github.com/microsoft/rStar}.%Additionally, without explicitly training or prompting, {\sysname} interestingly exhibits emergent intrinsic self-reflection during its deep thinking process.% Code and data will be available at \url{https://github.com/microsoft/rStar}.
+
+ 
+	\begin{table*}[hpt]
+		\small 
+		\centering
+		
+		\label{tbl:teaser}
+		\resizebox{0.82\textwidth}{!}{
+			\begin{tabular}%{@{\hskip0pt}c@{\hskip4pt}|cccc@{\hskip0pt}}
+				{@{\hskip0pt}c@{\hskip8pt}g@{\hskip6pt}g@{\hskip6pt}g@{\hskip6pt}c@{\hskip5pt}c@{\hskip5pt}c@{\hskip5pt}c@{\hskip5pt}c@{\hskip0pt}}
+				\toprule
+			\makecell{Task\\(pass@1 Acc)}	&\makecell {\bf{rStar-Math}\\\bf{(Qwen-7B)}} &\makecell {\bf{rStar-Math}\\\bf{(Qwen-1.5B)}}&\makecell {\bf{rStar-Math}\\\bf{(Phi3-mini)}}& \makecell{\bf{OpenAI} \\\bf{o1-preview}}& \makecell{\bf{OpenAI} \\\bf{o1-mini}} & \makecell{\bf{QWQ}\\\bf{32B-preview}}&\bf{GPT-4o}& \makecell{\bf{DeepSeek-V3}}\\
+				\midrule
+				MATH& 90.0& 88.6& 86.4&85.5&90.0&\underline{90.6}&76.6&90.2\\
+				AIME 2024& 53.3 &46.7 &43.3&44.6&\underline{56.7}&50.0&9.3&39.2\\
+				Olympiad Bench &\underline{65.6}  &64.6 &60.3&- &65.3 &61.2 &43.3 &55.4\\
+				College Math &\underline{60.5}& 59.3& 59.1&- & 57.8&55.8 &48.5 &58.9\\
+				Omni-Math & 50.5& 48.5&46.0 &52.5 &\underline{60.5}&49.6&30.5&35.9\\
+				\bottomrule
+		\end{tabular}}
+	\vspace{-1ex}
+	\caption{{\sysname} enables frontier math reasoning in SLMs via  deep thinking over 64 trajectories.  }
+		%	\vspace{-1ex}
+	\end{table*}
+	
+%	\begin{table*}[hpt]
+%	\small 
+%	\centering
+	
+%	\label{tbl:teaser}
+%	\resizebox{0.82\textwidth}{!}{
+%		\begin{tabular}%{@{\hskip0pt}c@{\hskip4pt}|cccc@{\hskip0pt}}
+		%	{@{\hskip0pt}c@{\hskip8pt}g@{\hskip6pt}g@{\hskip6pt}g@{\hskip6pt}c@{\hskip6pt}c@{\hskip6pt}c@{\hskip6pt}c@{\hskip6pt}c@{\hskip0pt}}
+		%	\toprule
+		%	\makecell{Task\\(pass@1 Acc)}	&\makecell {\bf{rStar-Math}\\\bf{(Qwen-7B)}} &\makecell {\bf{rStar-Math}\\\bf{(Qwen-1.5B)}}&\makecell %{\bf{rStar-Math}\\\bf{(Phi3-mini)}}& \makecell{\bf{OpenAI} \\\bf{o1-preview}}& %\makecell{\bf{OpenAI} \\\bf{o1-mini}} & %\makecell{\bf{QWQ}\\\bf{32B-preview}}&\bf{GPT-4o}& %\makecell{\bf{Claude3.5}\\\bf{Sonnet}}\\
+	%		\midrule
+	%		MATH& 90.0& 88.6& 86.4&85.5&90.0&\underline{90.6}&76.6&78.3\\
+	%		AIME 2024& 53.3 &46.7 &43.3&44.6&\underline{56.7}&50.0&9.3&16.0\\
+%			Olympiad Bench &\underline{65.6}  &64.6 &60.3&- &65.3 &61.2 &43.3 &-\\
+%			College Math &\underline{60.5}& 59.3& 59.1&- & 57.8&55.8 &48.5 &-\\
+	%		Omni-Math & 50.5& 48.5&46.0 &52.5 &\underline{60.5}&49.6&30.5&26.2\\
+%			\bottomrule
+%	\end{tabular}}
+%	\vspace{-1ex}
+%	\caption{{\sysname} enables frontier math reasoning in SLMs via  deep thinking over 64 trajectories.  }
+	%	\vspace{-1ex}
+%\end{table*}
+\end{abstract}

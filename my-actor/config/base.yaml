@@ -1,0 +1,35 @@
+# Base configuration for GPU-accelerated web scraping actor
+
+# GPU settings
+gpu:
+  use_mixed_precision: true
+  batch_size: 8
+  model_parallel_threshold: 1024  # Hidden size threshold for model parallelism
+
+# Model settings
+models:
+  sentiment:
+    name: "distilbert-base-uncased-finetuned-sst-2-english"
+    max_length: 512
+  ner:
+    name: "dbmdz/bert-large-cased-finetuned-conll03-english"
+    max_length: 512
+
+# Processing settings
+processing:
+  max_concurrent_requests: 10
+  request_timeout: 30
+  max_retries: 3
+  retry_delay: 1.0
+
+# Monitoring
+monitoring:
+  prometheus_port: 9091
+  metrics_update_interval: 1.0
+  log_level: "INFO"
+
+# Storage
+storage:
+  datasets_dir: "/usr/src/app/storage/datasets/default"
+  key_value_stores_dir: "/usr/src/app/storage/key_value_stores/default"
+  request_queue_dir: "/usr/src/app/storage/request_queue/default"

@@ -10,12 +10,20 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SECRET_PATTERNS = [
-    r'(?i)api[_-]key\s*=\s*[\'"](.*?)[\'"]',
-    r'(?i)password\s*=\s*[\'"](.*?)[\'"]',
-    r'(?i)secret\s*=\s*[\'"](.*?)[\'"]',
-    r'(?i)token\s*=\s*[\'"](.*?)[\'"]',
-    r'(?i)credentials\s*=\s*[\'"](.*?)[\'"]',
-    r'(?i)auth[_-]token\s*=\s*[\'"](.*?)[\'"]',
+    # JWT and authentication secrets
+    r'(?i)jwt[_-](?:secret|key)\s*=\s*[\'"]((?!\${)[^\'"]*)[\'"]\s*(?:#|$)',
+    r'(?i)secret[_-]key\s*=\s*[\'"]((?!\${)[^\'"]*)[\'"]\s*(?:#|$)',
+    r'(?i)api[_-]key\s*=\s*[\'"]((?!\${)[^\'"]*)[\'"]\s*(?:#|$)',
+
+    # Database and service credentials
+    r'(?i)(?:db|database)[_-](?:password|secret)\s*=\s*[\'"]((?!\${)[^\'"]*)[\'"]\s*(?:#|$)',
+    r'(?i)(?:redis|mongo|postgres)[_-](?:password|secret)\s*=\s*[\'"]((?!\${)[^\'"]*)[\'"]\s*(?:#|$)',
+
+    # Cloud provider credentials
+    r'(?i)(?:aws|azure|gcp)[_-](?:secret|key|token)\s*=\s*[\'"]((?!\${)[^\'"]*)[\'"]\s*(?:#|$)',
+
+    # AI/ML model credentials
+    r'(?i)(?:openai|huggingface|anthropic|cohere)[_-](?:key|token|secret)\s*=\s*[\'"]((?!\${)[^\'"]*)[\'"]\s*(?:#|$)',
 ]
 
 EXCLUDED_DIRS = [
@@ -25,6 +33,9 @@ EXCLUDED_DIRS = [
     'build',
     '__pycache__',
     '.git',
+    '.env',
+    '.venv',
+    'venv',
 ]
 
 def should_scan_file(filepath: str) -> bool:
@@ -32,12 +43,16 @@ def should_scan_file(filepath: str) -> bool:
     # Skip excluded directories
     if any(excluded in filepath for excluded in EXCLUDED_DIRS):
         return False
-        
+
     # Skip binary files and certain extensions
-    excluded_extensions = {'.pyc', '.so', '.dll', '.exe', '.bin'}
+    excluded_extensions = {'.pyc', '.so', '.dll', '.exe', '.bin', '.jpg', '.png', '.gif'}
     if os.path.splitext(filepath)[1] in excluded_extensions:
         return False
-        
+
+    # Skip large files (>1MB)
+    if os.path.getsize(filepath) > 1024 * 1024:
+        return False
+
     return True
 
 def categorize_secret(filepath: str, secret: str) -> Tuple[str, str]:
@@ -58,40 +73,40 @@ def categorize_secret(filepath: str, secret: str) -> Tuple[str, str]:
 def scan_for_secrets(directory: str) -> Dict[str, List[Dict]]:
     """Scan directory for potential secrets."""
     secrets: Dict[str, List[Dict]] = {}
-    
+
     for filepath in glob.glob(f"{directory}/**/*", recursive=True):
         if not should_scan_file(filepath):
             continue
-            
+
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 content = f.read()
-                
+
             for pattern in SECRET_PATTERNS:
                 matches = re.finditer(pattern, content)
                 for match in matches:
                     secret_value = match.group(1)
                     category, vault_path = categorize_secret(filepath, secret_value)
-                    
+
                     if category not in secrets:
                         secrets[category] = []
-                        
+
                     secrets[category].append({
                         'file': os.path.relpath(filepath, directory),
                         'line': content.count('\n', 0, match.start()) + 1,
                         'vault_path': vault_path,
                         'pattern_type': pattern.split('[_-]')[0],
                     })
-                    
+
         except Exception as e:
             logger.warning(f"Failed to process {filepath}: {e}")
-            
+
     return secrets
 
 def generate_mapping_file(secrets: Dict[str, List[Dict]], output_file: str):
     """Generate a YAML mapping file for secret migration."""
     mapping = {}
-    
+
     for category, items in secrets.items():
         for item in items:
             mapping[item['file']] = {
@@ -100,10 +115,10 @@ def generate_mapping_file(secrets: Dict[str, List[Dict]], output_file: str):
                 'line': item['line'],
                 'type': item['pattern_type'],
             }
-            
+
     with open(output_file, 'w') as f:
         yaml.safe_dump(mapping, f, default_flow_style=False)
-        
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description='Scan codebase for secrets')
@@ -111,19 +126,19 @@ def main():
     parser.add_argument('--output', default='secret_mapping.yaml',
                       help='Output mapping file (default: secret_mapping.yaml)')
     args = parser.parse_args()
-    
+
     logger.info(f"Scanning directory: {args.directory}")
     secrets = scan_for_secrets(args.directory)
-    
+
     # Print summary
     total_secrets = sum(len(items) for items in secrets.values())
     logger.info(f"Found {total_secrets} potential secrets:")
     for category, items in secrets.items():
         logger.info(f"  {category}: {len(items)} secrets")
-        
+
     # Generate mapping file
     generate_mapping_file(secrets, args.output)
     logger.info(f"Generated mapping file: {args.output}")
-    
+
 if __name__ == '__main__':
-    main() 
+    main()

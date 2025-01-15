@@ -14,6 +14,12 @@ impl SecurityHeaders {
     }
 }
 
+impl Default for SecurityHeaders {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S, B> Transform<S, ServiceRequest> for SecurityHeaders
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
@@ -53,15 +59,12 @@ where
         Box::pin(async move {
             let mut res = fut.await?;
             let headers = res.headers_mut();
-            
+
             headers.insert(
                 header::X_CONTENT_TYPE_OPTIONS,
                 HeaderValue::from_static("nosniff"),
             );
-            headers.insert(
-                header::X_FRAME_OPTIONS,
-                HeaderValue::from_static("DENY"),
-            );
+            headers.insert(header::X_FRAME_OPTIONS, HeaderValue::from_static("DENY"));
             headers.insert(
                 HeaderName::from_static("x-xss-protection"),
                 HeaderValue::from_static("1; mode=block"),
@@ -78,4 +81,4 @@ where
             Ok(res)
         })
     }
-} 
+}

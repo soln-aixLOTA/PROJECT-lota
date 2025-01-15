@@ -29,4 +29,5 @@ pub mod handlers;
 pub mod middleware;
 pub mod models;
 
-pub use error::{AppError, AppResult};
+pub use error::AppError;
+pub type AppResult<T> = Result<T, AppError>;

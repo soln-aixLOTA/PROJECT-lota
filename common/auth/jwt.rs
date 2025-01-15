@@ -13,7 +13,7 @@ pub struct Claims {
 
 #[instrument]
 pub fn create_jwt(user_id: String) -> Result<String, ApiError> {
-    let secret = env::var("JWT_SECRET").map_err(|_| {
+    let key = env::var("JWT_SECRET").map_err(|_| {
         error!("JWT_SECRET not set");
         ApiError::JwtError(
             jsonwebtoken::errors::Error::from(jsonwebtoken::errors::ErrorKind::InvalidToken).into(),
@@ -36,8 +36,8 @@ pub fn create_jwt(user_id: String) -> Result<String, ApiError> {
     };
 
     let header = Header::default();
-    let key = EncodingKey::from_secret(secret.as_bytes());
-    encode(&header, &claims, &key).map_err(|e| {
+    let encoding_key = EncodingKey::from_secret(key.as_bytes());
+    encode(&header, &claims, &encoding_key).map_err(|e| {
         error!("Failed to create JWT: {}", e);
         ApiError::from(e)
     })
@@ -45,15 +45,15 @@ pub fn create_jwt(user_id: String) -> Result<String, ApiError> {
 
 #[instrument]
 pub fn validate_jwt(token: &str) -> Result<String, ApiError> {
-    let secret = env::var("JWT_SECRET").map_err(|_| {
+    let key = env::var("JWT_SECRET").map_err(|_| {
         error!("JWT_SECRET not set");
         ApiError::JwtError(
             jsonwebtoken::errors::Error::from(jsonwebtoken::errors::ErrorKind::InvalidToken).into(),
         )
     })?;
-    let key = DecodingKey::from_secret(secret.as_bytes());
+    let decoding_key = DecodingKey::from_secret(key.as_bytes());
     let validation = Validation::default();
-    decode::<Claims>(token, &key, &validation)
+    decode::<Claims>(token, &decoding_key, &validation)
         .map_err(|e| {
             error!("Failed to validate JWT: {}", e);
             ApiError::from(e)

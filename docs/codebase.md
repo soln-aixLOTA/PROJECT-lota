@@ -7,336 +7,185 @@ LotaBots is a platform for hardware and AI model attestation, built with Rust us
 ## Project Structure
 
 ```
-src/
-├── api/              # API endpoint definitions
-├── api_gateway/      # API Gateway service
-├── attestation/      # Hardware and AI attestation service
-├── auth/            # Authentication and authorization
-├── backend/         # Core backend services
-├── components/      # Reusable components
-├── config/          # Configuration management
-├── core/            # Core business logic
-├── db/              # Database access and models
-├── frontend/        # Web interface
-├── handlers/        # Request handlers
-├── lib/             # Shared libraries
-├── middleware/      # Web middleware components
-├── mlops/           # ML operations and management
-├── models/          # Data models and schemas
-├── routes/          # Route definitions
-├── services/        # Business services
-├── storage/         # Storage management
-├── user_management/ # User management service
-└── utils/           # Utility functions
+services/
+├── api-gateway/        # API Gateway service
+├── auth/              # Authentication service
+├── hardware-attestation/ # Hardware attestation service
+├── ai-attestation/    # AI model attestation service
+├── document-automation/ # Document management service
+└── resource-management/ # Resource management service
+
+shared/
+├── config/            # Configuration management
+├── db/               # Database utilities
+├── error/            # Error types and handling
+├── models/           # Shared data models
+├── testing/          # Testing utilities
+└── utils/            # Common utilities
+
+infrastructure/
+├── terraform/        # Infrastructure as Code
+└── kubernetes/       # Kubernetes manifests
+
+docs/
+├── architecture/     # Architecture documentation
+├── deployment/       # Deployment guides
+└── development/      # Development guides
 ```
 
-## Core Components
+## Services
 
-### 1. API Gateway Service
-
-The API Gateway serves as the main entry point for all client requests, handling:
+### API Gateway Service
+- Entry point for all client requests
 - Authentication and authorization
 - Request routing
 - Rate limiting
-- Request/Response transformation
+- Usage tracking
 
-**Key Files**:
-- `src/api_gateway/main.rs`: Service entry point
-- `src/middleware/rate_limit.rs`: Rate limiting implementation
-- `src/middleware/auth.rs`: Authentication middleware
+### Authentication Service
+- User registration and login
+- Password management
+- Token generation and validation
+- Role-based access control
 
-### 2. Attestation Service
-
-Handles hardware and AI model verification:
-
-#### Hardware Attestation
+### Hardware Attestation Service
 - GPU capability verification
 - Security feature validation
 - Resource monitoring
 - Container isolation checks
 
-#### AI Model Attestation
+### AI Attestation Service
 - Model verification
 - Compliance checking
 - Behavioral attestation
 - Audit trail generation
 
-**Key Files**:
-- `src/attestation/src/main.rs`: Attestation service entry point
-- `src/attestation/migrations/`: Database migrations for attestation records
-
-### 3. Authentication System
-
-Implements secure user authentication and authorization:
-- JWT-based authentication
-- Role-based access control (RBAC)
-- Token refresh mechanism
-- Password hashing with bcrypt
-
-**Key Files**:
-- `src/auth/mod.rs`: Authentication module
-- `src/models/auth.rs`: Authentication data models
-- `src/handlers/auth.rs`: Authentication endpoints
-
-### 4. Document Management
-
-Handles document processing and storage:
+### Document Automation Service
 - Document creation and updates
 - Metadata management
 - File storage integration
 - Access control
 
-**Key Files**:
-- `src/handlers/documents.rs`: Document handling endpoints
-- `src/models/document.rs`: Document data models
-
-### 5. Resource Management
-
-Manages compute resource allocation:
+### Resource Management Service
 - GPU resource scheduling
 - Container management
 - Memory allocation
 - Resource monitoring
 
-**Key Files**:
-- `src/resource_management.rs`: Resource management implementation
+## Shared Libraries
 
-## Data Models
+### Config Library (`shared/config`)
+- Configuration loading and validation
+- Environment variable handling
+- Default configurations
+- Configuration types
 
-### Core Data Models
+### Database Library (`shared/db`)
+- Database connection management
+- Migration handling
+- Common database operations
+- Connection pooling
 
-1. **User Model**
-```rust
-pub struct User {
-    pub id: Uuid,
-    pub username: String,
-    pub email: String,
-    pub role: String,
-    // ... other fields
-}
-```
+### Error Library (`shared/error`)
+- Common error types
+- Error handling utilities
+- HTTP error responses
+- Error logging
 
-2. **Document Model**
-```rust
-pub struct Document {
-    pub id: Uuid,
-    pub title: String,
-    pub content: Option<String>,
-    pub file_path: Option<String>,
-    pub content_type: String,
-    pub metadata: JsonValue,
-    // ... other fields
-}
-```
+### Models Library (`shared/models`)
+- Shared data structures
+- Database models
+- API request/response types
+- Validation logic
 
-3. **Attestation Model**
-```rust
-pub struct Attestation {
-    pub id: Uuid,
-    pub hardware_id: String,
-    pub attestation_type: String,
-    pub status: String,
-    pub metadata: JsonValue,
-    // ... other fields
-}
-```
+### Testing Library (`shared/testing`)
+- Test utilities
+- Fixtures and factories
+- Mock implementations
+- Test database setup
 
-## Database Schema
+### Utils Library (`shared/utils`)
+- Logging utilities
+- Metrics collection
+- Distributed tracing
+- Common helper functions
 
-The system uses PostgreSQL with the following main tables:
+## Infrastructure
 
-1. **users**
-   - Primary key: id (UUID)
-   - Unique constraints: username, email
-   - Indexes: username, email, role
+### Terraform
+- AWS infrastructure definitions
+- Network configuration
+- Service deployment
+- Resource provisioning
 
-2. **documents**
-   - Primary key: id (UUID)
-   - Foreign key: user_id references users(id)
-   - Indexes: user_id, document_type
-
-3. **attestations**
-   - Primary key: id (UUID)
-   - Indexes: hardware_id, attestation_type, status
-
-## Middleware Components
-
-1. **Rate Limiting**
-   - Token bucket algorithm
-   - Per-IP and per-user limits
-   - Redis-backed storage
-
-2. **Authentication**
-   - JWT validation
-   - Role verification
-   - Token refresh handling
-
-3. **Request ID**
-   - Unique request tracking
-   - Logging correlation
-   - Debug tracing
-
-4. **Security Headers**
-   - CORS configuration
-   - Content Security Policy
-   - XSS protection
-
-## Error Handling
-
-The system uses a centralized error handling approach:
-
-```rust
-pub enum AppError {
-    Authentication(String),
-    Authorization(String),
-    NotFound(String),
-    ValidationError(String),
-    DatabaseError(String),
-    Internal(String),
-}
-```
-
-Error responses follow a consistent format:
-```json
-{
-    "message": "Error description",
-    "code": "ERROR_CODE",
-    "details": { ... }
-}
-```
-
-## Configuration Management
-
-Configuration is managed through:
-1. Environment variables
-2. Configuration files
-3. Runtime configuration
-
-Key configuration areas:
-- Database connections
-- Redis settings
-- JWT secrets
-- Rate limiting parameters
-- Storage paths
-- Logging levels
-
-## Testing Strategy
-
-1. **Unit Tests**
-   - Individual component testing
-   - Mocked dependencies
-   - Property-based testing
-
-2. **Integration Tests**
-   - API endpoint testing
-   - Database integration
-   - Service communication
-
-3. **Performance Tests**
-   - Load testing
-   - Stress testing
-   - Resource utilization
-
-## Deployment
-
-The application supports multiple deployment options:
-
-1. **Docker Deployment**
-   - Multi-stage builds
-   - Container orchestration
-   - Resource isolation
-
-2. **Kubernetes Deployment**
-   - Service scaling
-   - Load balancing
-   - Health monitoring
-
-3. **Cloud Deployment**
-   - AWS integration
-   - Google Cloud support
-   - Infrastructure as Code
-
-## Security Considerations
-
-1. **Data Security**
-   - Encryption at rest
-   - Secure communication
-   - Key management
-
-2. **Access Control**
-   - Role-based permissions
-   - Resource isolation
-   - Audit logging
-
-3. **Compliance**
-   - GDPR compliance
-   - SOC2 requirements
-   - Security best practices
-
-## Performance Optimizations
-
-1. **Database**
-   - Connection pooling
-   - Query optimization
-   - Indexing strategy
-
-2. **Caching**
-   - Redis caching
-   - In-memory caches
-   - Cache invalidation
-
-3. **Resource Management**
-   - Efficient GPU allocation
-   - Memory management
-   - Connection pooling
+### Kubernetes
+- Service deployments
+- Configuration management
+- Resource allocation
+- Service discovery
 
 ## Development Guidelines
 
 1. **Code Style**
    - Follow Rust style guide
-   - Use clippy for linting
+   - Use `cargo fmt` for formatting
+   - Run `cargo clippy` for linting
    - Document public APIs
 
 2. **Git Workflow**
    - Feature branch workflow
    - Pull request reviews
    - Semantic versioning
+   - Signed commits
 
-3. **Documentation**
+3. **Testing**
+   - Unit tests for all components
+   - Integration tests for services
+   - End-to-end tests for workflows
+   - Performance testing
+
+4. **Documentation**
    - Keep API docs updated
    - Document breaking changes
    - Maintain changelog
+   - Update architecture docs
 
-## Monitoring and Logging
+## Security Best Practices
+
+1. **Authentication**
+   - JWT-based authentication
+   - Secure password hashing
+   - Token refresh mechanism
+   - Rate limiting
+
+2. **Authorization**
+   - Role-based access control
+   - Resource-level permissions
+   - Audit logging
+   - Access reviews
+
+3. **Data Security**
+   - Encryption at rest
+   - Secure communication
+   - Key management
+   - Regular security audits
+
+## Monitoring and Observability
 
 1. **Metrics**
    - Request latency
    - Error rates
    - Resource utilization
+   - Business metrics
 
 2. **Logging**
    - Structured logging
    - Log aggregation
    - Error tracking
+   - Audit trails
 
-3. **Alerting**
-   - Performance alerts
-   - Error thresholds
-   - Resource monitoring
-
-## Future Improvements
-
-1. **Technical Debt**
-   - Code optimization opportunities
-   - Deprecated features
-   - Upgrade paths
-
-2. **Feature Roadmap**
-   - Planned enhancements
-   - Scaling improvements
-   - New integrations
-
-3. **Architecture Evolution**
-   - Scalability improvements
-   - Performance optimizations
-   - Security enhancements
+3. **Tracing**
+   - Distributed tracing
+   - Request tracking
+   - Performance monitoring
+   - Dependency analysis

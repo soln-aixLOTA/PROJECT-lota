@@ -265,7 +265,7 @@ mod tests {
         let config = AppConfig {
             vault_config: Some(VaultConfig {
                 address: "http://localhost:8200".to_string(),
-                token: Some("test-token".to_string()),
+                token: Some("TEST_TOKEN_DO_NOT_USE_IN_PRODUCTION".to_string()),
                 role_id: None,
                 secret_id: None,
             }),
