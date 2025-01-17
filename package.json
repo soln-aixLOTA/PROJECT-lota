@@ -38,7 +38,7 @@
     "@types/node": "^20.11.17",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
-    "@types/three": "^0.161.2",
+    "@types/three": "^0.171.0",
     "autoprefixer": "^10.4.17",
     "axios": "^1.6.7",
     "class-variance-authority": "^0.7.1",
