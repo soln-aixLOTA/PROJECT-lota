@@ -1,0 +1,22 @@
+# Format: registry/image:tag
+# NVIDIA Docker Hub Containers
+
+# Core AI/ML Frameworks
+## PyTorch
+pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
+
+# NVIDIA Base Containers
+nvidia/cuda:12.3.1-base-ubuntu22.04
+nvidia/cuda:12.3.1-runtime-ubuntu22.04
+
+# NVIDIA Development Tools
+nvidia/cuda:12.3.1-devel-ubuntu22.04
+
+# Optional Components (uncomment as needed)
+#nvidia/cuda:12.3.1-cudnn8-devel-ubuntu22.04
+#nvidia/cuda:12.3.1-runtime-ubuntu20.04
+
+# Note: These containers are from Docker Hub (docker.io)
+# They are publicly available and don't require NGC credentials
+# For development and testing purposes
+# For production use, please obtain appropriate NVIDIA licensing

@@ -1,0 +1,429 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+  RUSTFLAGS: "-D warnings"
+  RUST_LOG: debug
+  CARGO_NET_RETRY: 3
+  CARGO_INCREMENTAL: 0
+  RUSTC_WRAPPER: sccache
+  SCCACHE_CACHE_SIZE: "2G"
+  SCCACHE_DIR: "/home/runner/.cache/sccache"
+  CARGO_PROFILE_RELEASE_LTO: "true"
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+  CARGO_PROFILE_RELEASE_PANIC: "abort"
+
+jobs:
+  benchmark:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Install sccache
+        run: |
+          mkdir -p /home/runner/.cache/sccache
+          curl -L https://github.com/mozilla/sccache/releases/download/v0.3.3/sccache-v0.3.3-x86_64-unknown-linux-musl.tar.gz | tar xz
+          sudo mv sccache-*/sccache /usr/local/bin/
+          echo "RUSTC_WRAPPER=/usr/local/bin/sccache" >> $GITHUB_ENV
+        timeout-minutes: 2
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Install performance tools
+        run: |
+          cargo install cargo-criterion
+          cargo install cargo-flamegraph
+          cargo install hyperfine
+        timeout-minutes: 5
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            ~/.cache/sccache
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bench-
+
+      - name: Run benchmarks
+        run: |
+          # Configure system for benchmarking
+          sudo sysctl -w kernel.perf_event_paranoid=1
+          sudo sysctl -w kernel.kptr_restrict=0
+          
+          # Run criterion benchmarks
+          cargo criterion --output-format verbose
+          
+          # Generate flamegraph
+          cargo flamegraph --bin code-analyzer -- --bench
+          
+          # Run performance comparisons
+          hyperfine --warmup 3 'cargo run --release -- analyze sample_code/'
+        timeout-minutes: 15
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v2
+        with:
+          name: benchmark-results
+          path: |
+            target/criterion/**/*
+            flamegraph.svg
+            benchmark_results.txt
+          retention-days: 14
+
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: benchmark
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lotabots_test
+          POSTGRES_INITDB_ARGS: "--nosync"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --memory=2g
+          --cpus=2
+          --shm-size=2g
+      redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --memory=1g
+          --cpus=1
+
+    steps:
+      - name: Install sccache
+        run: |
+          mkdir -p /home/runner/.cache/sccache
+          curl -L https://github.com/mozilla/sccache/releases/download/v0.3.3/sccache-v0.3.3-x86_64-unknown-linux-musl.tar.gz | tar xz
+          sudo mv sccache-*/sccache /usr/local/bin/
+          echo "RUSTC_WRAPPER=/usr/local/bin/sccache" >> $GITHUB_ENV
+        timeout-minutes: 2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl pkg-config libssl-dev redis-tools postgresql-client linux-tools-common linux-tools-generic
+          sudo sysctl -w vm.max_map_count=262144
+          sudo sysctl -w net.core.somaxconn=65535
+        timeout-minutes: 5
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: llvm-tools-preview
+          override: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            ~/.cache/sccache
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-test-
+
+      - name: Install cargo-llvm-cov
+        run: |
+          curl -LsSf https://github.com/taiki-e/cargo-llvm-cov/releases/latest/download/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz | tar xzf - -C ~/.cargo/bin
+        timeout-minutes: 2
+
+      - name: Verify database connection
+        run: |
+          echo "Checking PostgreSQL connection..."
+          timeout 30s bash -c 'until pg_isready -h localhost -p 5432; do sleep 1; done'
+          echo "Checking Redis connection..."
+          timeout 30s bash -c 'until redis-cli ping; do sleep 1; done'
+        timeout-minutes: 1
+
+      - name: Run unit tests with coverage
+        run: |
+          RUST_TEST_THREADS=4 cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/lotabots_test
+          REDIS_URL: redis://localhost:6379/0
+          SCCACHE_GHA_ENABLED: "true"
+          RUST_TEST_THREADS: 4
+          RUST_BACKTRACE: full
+        timeout-minutes: 15
+
+      - name: Collect container logs on failure
+        if: failure()
+        run: |
+          mkdir -p logs
+          echo "Collecting logs from containers..."
+          docker ps -a > logs/containers.txt
+          docker stats --no-stream > logs/container_stats.txt
+          
+          for container in $(docker ps -q); do
+            name=$(docker inspect --format='{{.Name}}' $container)
+            echo "=== Logs for $name ===" > "logs/${name#/}.log"
+            docker logs $container &>> "logs/${name#/}.log" || true
+            docker inspect $container > "logs/${name#/}_inspect.json" || true
+            
+            # Collect resource usage
+            echo "=== Resource Usage for $name ===" > "logs/${name#/}_resources.log"
+            docker stats $container --no-stream >> "logs/${name#/}_resources.log" || true
+            
+            # Collect container metrics
+            echo "=== Container Metrics ===" > "logs/${name#/}_metrics.log"
+            docker exec $container top -b -n 1 >> "logs/${name#/}_metrics.log" || true
+            docker exec $container free -h >> "logs/${name#/}_metrics.log" || true
+          done
+          
+          # Collect system metrics
+          echo "=== System Metrics ===" > logs/system_metrics.log
+          free -h >> logs/system_metrics.log
+          df -h >> logs/system_metrics.log
+          top -b -n 1 >> logs/system_metrics.log
+          vmstat 1 5 >> logs/system_metrics.log
+          iostat >> logs/system_metrics.log
+
+      - name: Upload logs artifact
+        if: failure()
+        uses: actions/upload-artifact@v2
+        with:
+          name: container-logs
+          path: logs/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          files: lcov.info
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-test
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lotabots_test
+          POSTGRES_INITDB_ARGS: "--nosync"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --memory=2g
+          --cpus=2
+          --shm-size=2g
+      redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --memory=1g
+          --cpus=1
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl pkg-config libssl-dev redis-tools postgresql-client linux-tools-common linux-tools-generic
+          sudo sysctl -w vm.max_map_count=262144
+          sudo sysctl -w net.core.somaxconn=65535
+        timeout-minutes: 5
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-integration-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Verify database connection
+        run: |
+          echo "Checking PostgreSQL connection..."
+          timeout 30s bash -c 'until pg_isready -h localhost -p 5432; do sleep 1; done'
+          echo "Checking Redis connection..."
+          timeout 30s bash -c 'until redis-cli ping; do sleep 1; done'
+        timeout-minutes: 1
+
+      - name: Run integration tests
+        run: |
+          RUST_TEST_THREADS=4 cargo test --release --test '*' --all-features -- --nocapture --test-threads=4
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/lotabots_test
+          REDIS_URL: redis://localhost:6379/0
+          TEST_LOG: true
+          RUST_TEST_THREADS: 4
+          RUST_BACKTRACE: full
+          RUST_LOG: debug
+        timeout-minutes: 20
+
+      - name: Collect test logs on failure
+        if: failure()
+        run: |
+          mkdir -p test_logs
+          find target/debug -type f -name "*.log" -exec cp {} test_logs/ \;
+          
+          # Collect system state on failure
+          echo "=== System State ===" > test_logs/system_state.log
+          free -h >> test_logs/system_state.log
+          df -h >> test_logs/system_state.log
+          ps aux >> test_logs/system_state.log
+          vmstat 1 5 >> test_logs/system_state.log
+          iostat >> test_logs/system_state.log
+          
+          # Database connection check
+          echo "=== Database State ===" > test_logs/db_state.log
+          pg_isready -h localhost -p 5432 >> test_logs/db_state.log 2>&1 || true
+          redis-cli ping >> test_logs/db_state.log 2>&1 || true
+          redis-cli info >> test_logs/redis_info.log 2>&1 || true
+          
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v2
+        with:
+          name: integration-test-logs
+          path: test_logs/
+          retention-days: 7
+
+  doc-test:
+    name: Documentation Tests
+    runs-on: ubuntu-latest
+    needs: integration-test
+    timeout-minutes: 15
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl pkg-config libssl-dev
+        timeout-minutes: 5
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-doc-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run documentation tests
+        run: |
+          cargo test --doc --all-features -- --nocapture
+        timeout-minutes: 10
+
+  notify:
+    name: Notify Test Results
+    needs: [benchmark, unit-test, integration-test, doc-test]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Generate Test Summary
+        run: |
+          echo "### Test Results Summary" > summary.md
+          echo "| Test Type | Status | Details |" >> summary.md
+          echo "|-----------|--------|----------|" >> summary.md
+          echo "| Performance Benchmarks | ${{ needs.benchmark.result == 'success' && '✅' || '❌' }} | View in artifacts |" >> summary.md
+          echo "| Unit Tests | ${{ needs.unit-test.result == 'success' && '✅' || '❌' }} | Coverage report |" >> summary.md
+          echo "| Integration Tests | ${{ needs.integration-test.result == 'success' && '✅' || '❌' }} | System tests |" >> summary.md
+          echo "| Documentation Tests | ${{ needs.doc-test.result == 'success' && '✅' || '❌' }} | API docs |" >> summary.md
+
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          status="${{ needs.benchmark.result == 'success' && needs.unit-test.result == 'success' && needs.integration-test.result == 'success' && needs.doc-test.result == 'success' && '✅ Success' || '❌ Failure' }}"
+          curl -X POST -H "Content-type: application/json" \
+               -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+               -d "{
+                 \"channel\":\"$SLACK_CHANNEL_ID\",
+                 \"text\":\"*Test Results:* $status\n*Workflow:* <$WORKFLOW_URL|View Details>\",
+                 \"blocks\": [
+                   {
+                     \"type\": \"section\",
+                     \"text\": {
+                       \"type\": \"mrkdwn\",
+                       \"text\": \"*Test Results:* $status\n*Branch:* \`${{ github.ref_name }}\`\n*Commit:* \`${{ github.sha }}\`\n*Performance:* View benchmark results in artifacts\n*Workflow:* <$WORKFLOW_URL|View Details>\"
+                     }
+                   }
+                 ]
+               }" \
+               https://slack.com/api/chat.postMessage

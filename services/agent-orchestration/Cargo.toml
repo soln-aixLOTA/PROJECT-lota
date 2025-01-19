@@ -1,0 +1,32 @@
+[package]
+name = "agent-orchestration"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.7", features = ["multipart"] }
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tower-http = { version = "0.5", features = ["limit", "trace"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+config = "0.13"
+toml = "0.8"
+async-nats = "0.33" # For NATS messaging
+opentelemetry = { version = "0.21", features = ["rt-tokio"] }
+opentelemetry-prometheus = "0.14"
+prometheus = "0.13"
+jsonwebtoken = "9.2"
+sqlx = { version = "0.7", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "uuid",
+    "time",
+] }
+thiserror = "1.0"
+anyhow = "1.0"
+async-trait = "0.1"
+futures = "0.3"
+common = { path = "../../common" }

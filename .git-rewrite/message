@@ -1,0 +1,1 @@
+chore: update Rust version in Dockerfiles - Upgrade Rust base image from 1.70 to 1.74 in both api_gateway and attestation Dockerfiles for improved performance and security

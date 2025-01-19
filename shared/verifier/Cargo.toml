@@ -1,0 +1,28 @@
+[package]
+name = "lotabots-verifier"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Code verification utilities for the LotaBots platform"
+
+[dependencies]
+# Workspace dependencies
+tokio.workspace = true
+serde.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+
+# Local dependencies
+lotabots-config = { path = "../config" }
+lotabots-error = { path = "../error" }
+
+# Library-specific dependencies
+governor = "0.6"
+metrics-runtime = "0.2"
+
+[dev-dependencies]
+lotabots-testing = { path = "../testing" }
+tokio-test.workspace = true
+mockall.workspace = true

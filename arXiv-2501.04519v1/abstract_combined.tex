@@ -1,0 +1,12 @@
+\section*{Abstract}
+
+\sysname{} is a modern, secure, and scalable microservices platform built in Rust, designed to handle hardware attestation, AI model verification, document management, and resource allocation. The system leverages state-of-the-art technologies including Actix-web for high-performance async web services, PostgreSQL and Redis for data management, and comprehensive monitoring through Prometheus and Grafana.
+
+Additionally, we showcase how small language models (SLMs) can rival or even surpass the math reasoning capability of larger models via "deep thinking." This deep thinking, exercised through Monte Carlo Tree Search (MCTS) and guided by a \textit{process preference model (PPM)}, achieves frontier-level math reasoning. We train two SLMs: a math \emph{policy SLM} and a \emph{process reward model}, and detail the \textit{step-by-step verified reasoning trajectories} used in training and evaluation.
+
+Within the microservices context, \sysname{} presents refined system architecture, file structure, and technology stack recommendations. We detail core components (API gateway, authentication service, hardware attestation, document service, resource management), each designed with security, scalability, and maintainability in mind—following Rust best practices and modern microservices patterns.
+
+The platform incorporates robust security measures, including JWT-based authentication, bcrypt password hashing, and secret management through HashiCorp Vault or AWS Secrets Manager. Deployed via Docker/Kubernetes, \sysname{} features thorough observability (metrics, logging, tracing). This document serves as a comprehensive guide for both AI agents and human developers, ensuring consistent development practices and high-quality standards across the project.
+
+\medskip
+\noindent \textbf{Keywords:} Rust Microservices, Hardware Attestation, AI Model Verification, Monte Carlo Tree Search, Process Preference Model, Secure Cloud Deployment

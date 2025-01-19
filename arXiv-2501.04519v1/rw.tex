@@ -1,0 +1,36 @@
+\section{Related Works}
+
+\noindent\textbf{Math Data Synthesis}.  Advancements in LLM math reasoning have largely relied on curating high-quality  CoT data, with most leading approaches being GPT-distilled, using frontier models like GPT-4 for synthesis~\citep{wang2024mathcoder,tora,luo2023wizardmath}. Notable works include NuminaMath~\citep{numina_math_datasets} and
+MetaMath~\citep{yu2023metamath}. While effective, this limits reasoning to the capabilities of the teacher LLM.  
+Hard problems that the teacher LLM cannot solve are excluded in the training set. 
+   Even solvable problems may contain error-prone intermediate steps, which are hard to detect. Although rejection sampling methods~\citep{rejectionsampling,brown2024large} can improve data quality,
+ they do not guarantee correct intermediate steps. As a result, scaling up CoT data has diminishing returns, with gains nearing saturation—e.g., OpenMathInstruct-2~\citep{openmath2} only sees a 3.9\% boost on MATH despite an 8× increase in dataset size.
+   
+   \noindent\textbf{Scaling Test-time Compute} has introduced new scaling laws,  allowing LLMs to improve performance across by generating multiple samples and using reward models for best-solution selection ~\citep{snell2024scaling,wu2024empirical,brown2024large}. Various test-time search methods have been proposed~\citep{ kang2024mindstar,wang2024qimprovingmultistepreasoning}, including  random sampling~\citep{selfconsistency} and tree-search methods~\citep{tot,rap,zhang2024accessing,rstar} like MCTS. However, open-source methods for scaling test-time computation have shown limited gains in math reasoning, often due to policy LLM or reward model limitations.   {\sysname} addresses this by iteratively evolving the policy LLM and reward model, achieving System 2 mathematical reasoning performance comparable to OpenAI o1~\citep{o1}.
+   
+   
+   
+   
+   
+   \noindent\textbf{Reward Models} are crucial for effective System 2 reasoning but are challenging to obtain. Recent works include LLM-as-a-Judge for verification ~\citep{llmjudge,rstar}  and specialized reward models like Outcome Reward Model~\citep{qwen2.5,yu2023outcome} and Process Reward Model (PRM)~\citep{lightman2024lets}. While PRMs offer promising dense, step-level reward signals for 
+complex reasoning~\citep{luo2024improve,mathshepherd},  collecting step-level annotations remains an obstacle. While ~\cite{kang2024mindstar, wang2024qimprovingmultistepreasoning} rely on costly human-annotated datasets like PRM800k~\citep{lightman2024lets},
+   recent approaches~\citep{mathshepherd,luo2024improve} explore automated annotation via Monte Carlo Sampling or MCTS. However,  they struggle to generate precise reward scores, which limits performance gains. {\sysname} introduces a novel process preference reward (PPM) that eliminates the need for accurate step-level reward score annotation. 
+   
+  
+   
+   
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+%\noindent\textbf{Self-Improvement}.   

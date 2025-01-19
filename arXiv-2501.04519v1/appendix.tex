@@ -1,0 +1,154 @@
+\appendix
+
+\section{Additional Experiments and Details}
+\label{sec:appendexp}
+
+\subsection{Data Generation Details}
+
+The training data for the policy SLM and PPM was generated through multiple rounds:
+
+\begin{itemize}
+    \item \textbf{Initial Dataset}:
+    \begin{itemize}
+        \item 10,000 curated math problems from various sources
+        \item Human-verified solutions with step-by-step reasoning
+        \item Code implementations for numerical verification
+    \end{itemize}
+
+    \item \textbf{Round-based Generation}:
+    \begin{itemize}
+        \item Round 1: Base model fine-tuning
+        \item Round 2: MCTS-guided solution generation
+        \item Round 3: Quality filtering and verification
+        \item Round 4: Model updates and performance validation
+    \end{itemize}
+
+    \item \textbf{Quality Control}:
+    \begin{itemize}
+        \item Automated correctness checks
+        \item Human expert review of novel approaches
+        \item Diversity sampling for broad coverage
+        \item Error analysis and correction
+    \end{itemize}
+\end{itemize}
+
+\subsection{Training Details}
+
+The training process involved careful hyperparameter tuning:
+
+\begin{itemize}
+    \item \textbf{Policy SLM Training}:
+    \begin{itemize}
+        \item Learning rate: 1e-5 with cosine decay
+        \item Batch size: 32 sequences
+        \item Training steps: 10,000 per round
+        \item Gradient clipping at 1.0
+    \end{itemize}
+
+    \item \textbf{PPM Training}:
+    \begin{itemize}
+        \item Pairwise ranking loss
+        \item Temperature scaling: 0.7
+        \item Margin: 0.1
+        \item Negative sampling ratio: 3:1
+    \end{itemize}
+
+    \item \textbf{MCTS Parameters}:
+    \begin{itemize}
+        \item UCB constant: 1.4
+        \item Maximum depth: 15 steps
+        \item Rollouts per step: 50
+        \item Expansion breadth: 5 candidates
+    \end{itemize}
+\end{itemize}
+
+\subsection{Infrastructure Requirements}
+
+Resource usage for training and inference:
+
+\begin{itemize}
+    \item \textbf{Training Infrastructure}:
+    \begin{itemize}
+        \item 8x NVIDIA A100 GPUs
+        \item 1TB system memory
+        \item 100TB NVMe storage
+        \item 400Gbps networking
+    \end{itemize}
+
+    \item \textbf{Inference Setup}:
+    \begin{itemize}
+        \item 2x NVIDIA A10 GPUs per node
+        \item 64GB system memory
+        \item Auto-scaling from 3 to 20 nodes
+        \item Load balancing across GPU pools
+    \end{itemize}
+
+    \item \textbf{Storage Requirements}:
+    \begin{itemize}
+        \item Model checkpoints: 500GB
+        \item Training data: 2TB
+        \item Inference logs: 100GB/day
+        \item Monitoring data: 50GB/day
+    \end{itemize}
+\end{itemize}
+
+\section{Acknowledgements}
+
+We thank our colleagues for their valuable contributions:
+
+\begin{itemize}
+    \item Qiufeng Yin and Chengmin Chi for math problem collection
+    \item Lingxiao Ma and Ying Cao for GPU resource sharing
+    \item Baotong Lu and Jing Liu for infrastructure support
+    \item Jiahang Xu and Chengruidong Zhang for code review
+    \item Siyuan Wang and Gaokai Zhang for testing support
+    \item Yujian Li and Yang Wang for documentation help
+\end{itemize}
+
+\section{References}
+
+\begin{thebibliography}{10}
+
+\bibitem{qwq-32b-preview}
+Qwen Team.
+\newblock Qwq: Reflect deeply on the boundaries of the unknown (Nov 2024).
+\newblock \url{https://qwenlm.github.io/blog/qwq-32b-preview/}
+
+\bibitem{rstar}
+Zhenting Qi, Mingyuan Ma, Jiahang Xu, et~al.
+\newblock Mutual reasoning makes smaller llms stronger problem-solvers.
+\newblock {\em arXiv preprint arXiv:2408.06195}, 2024.
+
+\bibitem{o1}
+OpenAI.
+\newblock Openai o1 system card (preprint), 2024.
+
+\bibitem{deepseekv3}
+Aixin Liu, Bei Feng, Bing Xue, et~al.
+\newblock Deepseek-v3 technical report.
+\newblock {\em arXiv preprint arXiv:2412.19437}, 2024.
+
+\bibitem{thinking}
+Kahneman Daniel.
+\newblock {\em Thinking, fast and slow}.
+\newblock Macmillan, 2011.
+
+\bibitem{valmeekam2023planning}
+Karthik Valmeekam, Sarath Sreedharan, Matthew Marquez, Alberto Olmo, and
+  Subbarao Kambhampati.
+\newblock On the planning abilities of large language models (a critical
+  investigation).
+\newblock {\em arXiv preprint arXiv:2302.06706}, 2023.
+
+\bibitem{snell2024scaling}
+Charlie Snell, Jaehoon Lee, Kelvin Xu, and Aviral Kumar.
+\newblock Scaling llm test-time compute optimally can be more effective than
+  scaling model parameters.
+\newblock {\em arXiv preprint arXiv:2408.03314}, 2024.
+
+\bibitem{lightman2023let}
+Hunter Lightman, Vineet Kosaraju, Yura Burda, et~al.
+\newblock Let's verify step by step.
+\newblock {\em arXiv preprint arXiv:2305.20050}, 2023.
+
+\end{thebibliography}

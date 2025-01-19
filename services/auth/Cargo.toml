@@ -1,0 +1,10 @@
+[package]
+name = "auth"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+lotabots_models = { path = "../../shared/models" }

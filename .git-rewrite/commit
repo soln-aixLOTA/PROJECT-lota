@@ -1,0 +1,6 @@
+tree 91edd0de63ae7261ed1bafe23c264eebdd0e62da
+parent b361bc5d18415bec70ac51460e7db6417134af47
+author dislovemartin <info@soln.ai> 1735815406 -0500
+committer dislovemartin <info@soln.ai> 1735815406 -0500
+
+chore: update Rust version in Dockerfiles - Upgrade Rust base image from 1.70 to 1.74 in both api_gateway and attestation Dockerfiles for improved performance and security

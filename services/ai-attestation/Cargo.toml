@@ -1,0 +1,31 @@
+[package]
+name = "ai-attestation"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+axum = "0.7"
+axum-extra = { version = "0.9", features = ["cookie"] }
+chrono = "0.4"
+config = "0.13"
+opentelemetry = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "json",
+    "chrono",
+    "macros",
+    "migrate",
+] }
+thiserror = { workspace = true }
+tokio = { version = "1.35", features = ["full"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { version = "1.6", features = ["v4"] }

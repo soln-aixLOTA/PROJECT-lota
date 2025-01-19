@@ -1,0 +1,65 @@
+#!/bin/bash
+# LotaBots pre-commit hook
+
+echo "Running LotaBots pre-commit checks..."
+
+# Get the list of staged files
+staged_files=$(git diff --cached --name-only)
+
+# Function to run checks with timing
+run_check() {
+    echo "Running $1..."
+    start_time=$(date +%s)
+    $2
+    end_time=$(date +%s)
+    duration=$((end_time - start_time))
+    echo "$1 completed in ${duration}s."
+}
+
+# --- Rust Specific Checks ---
+if [[ $staged_files =~ \.rs$ ]]; then
+    # Format Rust code (only changed files)
+    run_check "Formatting Rust code" "cargo fmt --files $staged_files"
+
+    # Lint Rust code (only changed files)
+    run_check "Linting Rust code" "cargo clippy --no-default-features -- -D warnings -Zunstable-options --allow-dirty -p $(basename $(pwd)) --all-targets"
+    if [ $? -ne 0 ]; then
+        echo "Rust linting failed. Please fix the errors."
+        exit 1
+    fi
+fi
+
+# --- Security Checks ---
+run_check "Running security checks" "grep -n -iE 'API_KEY|SECRET|PASSWORD|TOKEN' $staged_files"
+if [ $? -eq 0 ]; then
+    echo " обнаружили потенциальные проблемы безопасности. Пожалуйста, проверьте."
+    exit 1
+fi
+
+# --- Configuration Validation ---
+# Assuming configuration files are in a 'config' directory
+if [[ $staged_files =~ ^config/ ]]; then
+    run_check "Validating configurations" "python scripts/validate_config.py $staged_files" # Replace with actual validation script
+    if [ $? -ne 0 ]; then
+        echo "Configuration validation failed. Please fix the errors."
+        exit 1
+    fi
+fi
+
+# --- Running Tests ---
+# Consider running tests in parallel if your test suite supports it
+if [[ $staged_files =~ \.rs$ ]]; then
+    run_check "Running tests" "cargo test"
+    if [ $? -ne 0 ]; then
+        echo "Tests failed. Please fix the errors."
+        exit 1
+    fi
+fi
+
+# --- Documentation Check ---
+# Example: Check if documentation needs updating based on code changes
+# This is a placeholder - you'll need a specific check for your documentation process
+run_check "Checking documentation" "echo 'Documentation check skipped for brevity' "
+
+echo "LotaBots pre-commit checks passed."
+exit 0

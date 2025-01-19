@@ -1,0 +1,64 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'api-gateway'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['api-gateway:9090']
+    scrape_interval: 5s
+    scrape_timeout: 4s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
+  - job_name: 'user-management'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['user-management:9091']
+    scrape_interval: 5s
+    scrape_timeout: 4s
+
+  - job_name: 'inference-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['inference-service:9092']
+    scrape_interval: 5s
+    scrape_timeout: 4s
+
+  - job_name: 'attestation-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['attestation-service:9093']
+    scrape_interval: 5s
+    scrape_timeout: 4s
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187'] 

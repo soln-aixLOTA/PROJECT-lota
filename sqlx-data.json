@@ -1,0 +1,23 @@
+{
+  "db": "PostgreSQL",
+  "1234567890abcdef1234567890abcdef": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text",
+          "Text",
+          "Int8",
+          "Text",
+          "document_status",
+          "Jsonb",
+          "Timestamptz",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "INSERT INTO documents (id, name, content_type, size, path, status, metadata, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *"
+  }
+}

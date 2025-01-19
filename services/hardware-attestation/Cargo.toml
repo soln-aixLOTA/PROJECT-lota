@@ -1,0 +1,46 @@
+[package]
+name = "hardware-attestation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+thiserror = "1.0"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+plotters = "0.3"
+sysinfo = "0.29"
+prometheus = "0.13"
+futures = "0.3"
+actix-web = "4.4"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+tokio-test = "0.4"
+test-log = "0.2"
+iai = "0.1"
+
+[[bench]]
+name = "gpu_benchmarks"
+path = "benches/gpu_benchmarks.rs"
+harness = false
+
+[[bench]]
+name = "gpu_allocations"
+path = "benches/gpu_allocations.rs"
+harness = false
+
+[lib]
+name = "hardware_attestation"
+path = "src/lib.rs"
+
+[[bin]]
+name = "hardware-attestation"
+path = "src/main.rs"
+
+# Custom build script to compile Zig code
+[package.metadata.build]
+zig_nvml = { path = "src/zig" }

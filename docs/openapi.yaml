@@ -1,0 +1,540 @@
+openapi: 3.0.0
+info:
+  title: LotaBots API
+  version: 1.0.0
+  description: |
+    LotaBots platform API providing hardware and AI model attestation services.
+
+    This API enables:
+    - User authentication and management
+    - Document handling and processing
+    - Hardware attestation for GPU and specialized AI hardware
+    - AI model attestation and verification
+    - Resource management and monitoring
+
+servers:
+  - url: http://localhost:{port}/v1
+    variables:
+      port:
+        default: "8080"
+        description: API port number for the service
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from the /auth/login or /auth/refresh endpoints
+
+  parameters:
+    PaginationPage:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+      description: Page number for pagination
+
+    PaginationPerPage:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+        maximum: 100
+      description: Number of items per page
+
+  schemas:
+    CreateUserRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+        - role
+      properties:
+        username:
+          type: string
+          minLength: 3
+          description: Unique username for the account
+          example: johndoe
+        email:
+          type: string
+          format: email
+          description: Valid email address for the account
+          example: john.doe@example.com
+        password:
+          type: string
+          minLength: 8
+          description: Account password (min 8 characters)
+          example: SecureP@ssw0rd
+        role:
+          type: string
+          enum: [user, admin]
+          description: User's role in the system
+          example: user
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Username of the account
+          example: johndoe
+        password:
+          type: string
+          description: Account password
+          example: SecureP@ssw0rd
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token for API authentication
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refresh_token:
+          type: string
+          description: JWT refresh token for obtaining new access tokens
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        user_id:
+          type: string
+          format: uuid
+          description: Unique identifier of the user
+          example: 123e4567-e89b-12d3-a456-426614174000
+
+    CreateDocumentRequest:
+      type: object
+      required:
+        - title
+        - content_type
+        - document_type
+      properties:
+        title:
+          type: string
+          description: Title of the document
+          example: Project Proposal
+        content:
+          type: string
+          description: Document content or text
+          example: This is the content of the document...
+        file_path:
+          type: string
+          description: Path to the document file if stored externally
+          example: /uploads/documents/proposal.pdf
+        content_type:
+          type: string
+          description: MIME type of the document
+          example: application/pdf
+        size:
+          type: integer
+          format: int64
+          description: Size of the document in bytes
+          example: 1048576
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional metadata for the document
+          example:
+            author: John Doe
+            department: Engineering
+            version: 1.0
+        document_type:
+          type: string
+          description: Type or category of the document
+          example: proposal
+
+    HardwareAttestationRequest:
+      type: object
+      required:
+        - hardware_id
+        - attestation_type
+      properties:
+        hardware_id:
+          type: string
+          description: Unique identifier of the hardware device
+          example: gpu-nvidia-a100-001
+        attestation_type:
+          type: string
+          enum: [gpu, tpm, sgx]
+          description: Type of hardware attestation to perform
+          example: gpu
+        metadata:
+          type: object
+          description: Additional hardware-specific metadata
+          example:
+            driver_version: 470.82.01
+            cuda_version: 11.4
+            memory: 40GB
+
+    AIModelAttestationRequest:
+      type: object
+      required:
+        - model_id
+        - model_type
+      properties:
+        model_id:
+          type: string
+          description: Unique identifier of the AI model
+          example: gpt-4-turbo-0125
+        model_type:
+          type: string
+          enum: [llm, vision, audio]
+          description: Type of AI model
+          example: llm
+        version:
+          type: string
+          description: Version of the model
+          example: 1.0.0
+        metadata:
+          type: object
+          description: Additional model-specific metadata
+          example:
+            parameters: 1.5T
+            architecture: transformer
+            training_dataset: common_crawl
+
+    ResourceAllocationRequest:
+      type: object
+      required:
+        - resource_type
+        - quantity
+      properties:
+        resource_type:
+          type: string
+          enum: [gpu, cpu, memory]
+          description: Type of resource to allocate
+          example: gpu
+        quantity:
+          type: integer
+          minimum: 1
+          description: Amount of resource to allocate
+          example: 2
+        constraints:
+          type: object
+          description: Resource-specific constraints
+          example:
+            gpu_type: A100
+            memory_per_gpu: 40
+            shared: false
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+        - code
+      properties:
+        message:
+          type: string
+          description: Human-readable error message
+          example: Invalid input parameters
+        code:
+          type: string
+          description: Machine-readable error code
+          example: INVALID_INPUT
+        details:
+          type: object
+          description: Additional error details
+          example:
+            field: email
+            constraint: format
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      description: |
+        Creates a new user account in the system.
+        The username must be unique and the password must meet security requirements.
+      tags:
+        - User Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid registration data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                username_taken:
+                  value:
+                    message: Username is already taken
+                    code: USERNAME_EXISTS
+                invalid_email:
+                  value:
+                    message: Invalid email format
+                    code: INVALID_EMAIL
+                weak_password:
+                  value:
+                    message: Password must be at least 8 characters
+                    code: WEAK_PASSWORD
+
+  /auth/login:
+    post:
+      summary: Login with username and password
+      description: |
+        Authenticates a user and returns access and refresh tokens.
+        The access token expires in 1 hour and should be used for API requests.
+        The refresh token can be used to obtain new access tokens.
+      tags:
+        - User Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_credentials:
+                  value:
+                    message: Invalid username or password
+                    code: INVALID_CREDENTIALS
+                account_locked:
+                  value:
+                    message: Account is locked
+                    code: ACCOUNT_LOCKED
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      description: |
+        Obtains a new access token using a valid refresh token.
+        Use this endpoint when the access token expires.
+      tags:
+        - User Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: string
+              description: Refresh token
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /documents:
+    post:
+      summary: Create a new document
+      description: |
+        Creates a new document in the system.
+        The document can include content directly or reference an external file.
+      tags:
+        - Document Management
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+      responses:
+        '201':
+          description: Document created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '400':
+          description: Invalid document data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List documents
+      description: |
+        Retrieves a paginated list of documents accessible to the authenticated user.
+        Results can be filtered and sorted using query parameters.
+      tags:
+        - Document Management
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PaginationPage'
+        - $ref: '#/components/parameters/PaginationPerPage'
+      responses:
+        '200':
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /hardware/attestation:
+    post:
+      summary: Perform hardware attestation
+      description: |
+        Initiates hardware attestation for GPU or specialized AI hardware.
+        Verifies hardware capabilities, security features, and configuration.
+      tags:
+        - Hardware Attestation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HardwareAttestationRequest'
+      responses:
+        '200':
+          description: Hardware attestation successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attestation_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [verified, failed]
+                  details:
+                    type: object
+                example:
+                  attestation_id: 123e4567-e89b-12d3-a456-426614174000
+                  status: verified
+                  details:
+                    gpu_count: 8
+                    memory_total: 320GB
+                    driver_status: verified
+
+  /ai/attestation:
+    post:
+      summary: Perform AI model attestation
+      description: |
+        Initiates attestation for an AI model.
+        Verifies model authenticity, behavior, and compliance.
+      tags:
+        - AI Model Attestation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIModelAttestationRequest'
+      responses:
+        '200':
+          description: AI model attestation successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attestation_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [verified, failed]
+                  details:
+                    type: object
+                example:
+                  attestation_id: 123e4567-e89b-12d3-a456-426614174000
+                  status: verified
+                  details:
+                    model_hash: sha256:1234...
+                    compliance_status: passed
+                    verification_date: "2024-01-15T14:30:00Z"
+
+  /resources/allocate:
+    post:
+      summary: Allocate resources
+      description: |
+        Requests allocation of compute resources (GPU, CPU, memory).
+        Handles resource scheduling and isolation.
+      tags:
+        - Resource Management
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceAllocationRequest'
+      responses:
+        '200':
+          description: Resources allocated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allocation_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [allocated, pending, failed]
+                  resources:
+                    type: object
+                example:
+                  allocation_id: 123e4567-e89b-12d3-a456-426614174000
+                  status: allocated
+                  resources:
+                    gpu_ids: ["gpu-0", "gpu-1"]
+                    memory_allocated: "80GB"
+                    container_id: "container-xyz"

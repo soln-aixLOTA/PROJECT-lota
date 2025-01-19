@@ -1,0 +1,24 @@
+\section{System Architecture and Implementation}
+
+\subsection{File Structure}
+The LotaBots platform follows a well-organized directory structure:
+
+\begin{verbatim}
+.
++-- services/              # Microservices
+|   +-- api-gateway/         # Entry point for external clients
+|   +-- auth/                # Authentication and authorization
+|   +-- attestation/         # Hardware checks
+|   +-- document/            # Document management
+|   +-- resource-management/ # Resource allocation
++-- shared/                # Shared libraries
+|   +-- config/              # Configuration management
+|   +-- db/                  # Database utilities
+|   +-- models/              # Shared data structures
+|   +-- utils/               # Common utilities
++-- infrastructure/        # IaC
++-- scripts/               # Development scripts
++-- docs/                  # Documentation
++-- tests/                 # Integration tests
++-- tools/                 # Development tools
+\end{verbatim}
