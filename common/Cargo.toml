@@ -16,14 +16,14 @@ futures = "0.3"
 opentelemetry = "0.20"
 opentelemetry-otlp = "0.13"
 tracing-opentelemetry = "0.21"
-idna = "0.4"
+idna = "1.0"
 
 # Local dependencies
 actix-web = "4.4"
 actix-service = "2.0"
 uuid = { version = "1.6", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres"] }
 
 [dev-dependencies]
 tokio-test = "0.4"
