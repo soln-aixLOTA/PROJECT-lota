@@ -40,7 +40,7 @@
     "@types/react-dom": "^18.2.19",
     "@types/three": "^0.171.0",
     "autoprefixer": "^10.4.17",
-    "axios": "^1.6.7",
+    "axios": "^1.8.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.0",
     "framer-motion": "^11.0.3",
